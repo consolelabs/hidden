@@ -267,13 +267,16 @@ final class ClockReplay {
 // was not replayed, or the replay reported the panel shown without pressing).
 // `identifiers` lists the AXIdentifiers in Notification Center's windows, nil when
 // Accessibility cannot read them; it is asked only while a window is up.
+// `whenUnreadable` is the answer in that nil case: the window alone stands for the
+// panel where Hidden Bar always has Accessibility (27), and does not where it may
+// not (26, where a banner keeps the same screen-tall window up).
 enum NotificationCenterPanel {
     // Only the panel shows Edit Widgets; a notification on its own never does.
     static let panelControlIdentifier = "widget-editor-button"
 
-    static func isOpen(windowUp: Bool, identifiers: () -> [String]?) -> Bool {
+    static func isOpen(windowUp: Bool, whenUnreadable: Bool = true, identifiers: () -> [String]?) -> Bool {
         guard windowUp else { return false }
-        guard let identifiers = identifiers() else { return true }
+        guard let identifiers = identifiers() else { return whenUnreadable }
         return identifiers.contains(panelControlIdentifier)
     }
 }
@@ -345,7 +348,7 @@ final class SystemMenuBarClock: MenuBarClockProviding {
             ClockFlashTimeline.mark("liftEffective")
             #endif
             // A panel that opened late from the first press must not be closed again.
-            if Self.notificationCenterIsOpen(minimumHeight: minimumPanelHeight) {
+            if Self.notificationCenterIsOpen(minimumHeight: minimumPanelHeight, whenUnreadable: true) {
                 return onMain(.panelShown)
             }
             var restoreAfterPress = Self.hidRestoreAfterPress
@@ -365,7 +368,7 @@ final class SystemMenuBarClock: MenuBarClockProviding {
             let replay = ClockReplay(timing: .init(restoreAfterPress: restoreAfterPress), mode: mode,
                                      now: { ProcessInfo.processInfo.systemUptime },
                                      after: { queue.asyncAfter(deadline: .now() + $0, execute: $1) },
-                                     panelIsOpen: { Self.notificationCenterIsOpen(minimumHeight: minimumPanelHeight) },
+                                     panelIsOpen: { Self.notificationCenterIsOpen(minimumHeight: minimumPanelHeight, whenUnreadable: true) },
                                      restore: { DispatchQueue.main.async(execute: restore) },
                                      finished: { outcome in DispatchQueue.main.async { finished(outcome) } })
             replay.pressed()
@@ -488,10 +491,15 @@ final class SystemMenuBarClock: MenuBarClockProviding {
     // desktop widgets sit below the desktop. Owner, layer and bounds need no
     // Screen Recording permission, unlike window names.
     static var isNotificationCenterOpen: Bool {
-        return notificationCenterIsOpen(minimumHeight: (NSScreen.screens.map(\.frame.height).min() ?? 0) / 2)
+        return isNotificationCenterOpen(whenUnreadable: true)
     }
 
-    private static func notificationCenterIsOpen(minimumHeight: CGFloat) -> Bool {
+    static func isNotificationCenterOpen(whenUnreadable: Bool) -> Bool {
+        return notificationCenterIsOpen(minimumHeight: (NSScreen.screens.map(\.frame.height).min() ?? 0) / 2,
+                                        whenUnreadable: whenUnreadable)
+    }
+
+    private static func notificationCenterIsOpen(minimumHeight: CGFloat, whenUnreadable: Bool) -> Bool {
         let owners = Set(NSRunningApplication.runningApplications(withBundleIdentifier: notificationCenterBundleIdentifier).map(\.processIdentifier))
         guard !owners.isEmpty,
               // .excludeDesktopElements costs about 5 ms more per read; layer >= 0
@@ -504,7 +512,7 @@ final class SystemMenuBarClock: MenuBarClockProviding {
                   let frame = CGRect(dictionaryRepresentation: bounds) else { return false }
             return frame.height >= minimumHeight
         }
-        return NotificationCenterPanel.isOpen(windowUp: windowUp, identifiers: { identifiers(in: owners) })
+        return NotificationCenterPanel.isOpen(windowUp: windowUp, whenUnreadable: whenUnreadable, identifiers: { identifiers(in: owners) })
     }
 
     // The AXIdentifiers in Notification Center's windows, nil when Accessibility cannot read them.

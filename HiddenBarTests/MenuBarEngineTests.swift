@@ -2847,6 +2847,16 @@ final class NotificationCenterPanelTests: XCTestCase {
     func testUnreadableAccessibilityFallsBackToTheWindow() {
         XCTAssertTrue(NotificationCenterPanel.isOpen(windowUp: true, identifiers: { nil }))
     }
+
+    func testUnreadableAccessibilityBeforeMacOS27DoesNotTakeTheWindowForThePanel() {
+        XCTAssertFalse(AutoCollapsePopupGuard.windowAloneIsThePanel(osMajorVersion: 26))
+        XCTAssertTrue(AutoCollapsePopupGuard.windowAloneIsThePanel(osMajorVersion: 27))
+        XCTAssertFalse(NotificationCenterPanel.isOpen(windowUp: true, whenUnreadable: false, identifiers: { nil }),
+                       "a banner on 26 keeps the screen-tall window up and Accessibility may be off")
+        XCTAssertTrue(NotificationCenterPanel.isOpen(windowUp: true, whenUnreadable: false,
+                                                     identifiers: { ["widget-editor-button"] }),
+                      "a readable panel still counts")
+    }
 }
 
 // The clock-click state machine on its own, with a manual clock and a fake panel.
