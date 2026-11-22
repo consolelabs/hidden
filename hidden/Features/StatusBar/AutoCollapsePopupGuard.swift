@@ -111,11 +111,19 @@ final class AutoCollapsePopupGuard {
         self.logPublic = logPublic
     }
 
-    // Before macOS 27 a notification keeps no screen-tall window up, so the window
-    // alone means the panel; the panel's own control was only checked on 27.
+    // A notification banner keeps the same screen-tall Notification Center window up
+    // as the panel on 26 too (26.6.2), so a stream of notifications held auto-hide
+    // for as long as it lasted. The panel's own control tells them apart, but it
+    // needs Accessibility, which the bar does not need before 27: without it the
+    // window is no longer taken for the panel. The panel and Control Center hang
+    // from items on the right of the arrow, which a collapse never hides.
     static func systemNotificationCenterPanelIsOpen() -> Bool {
-        guard ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 27 else { return true }
-        return SystemMenuBarClock.isNotificationCenterOpen
+        return SystemMenuBarClock.isNotificationCenterOpen(
+            whenUnreadable: windowAloneIsThePanel(osMajorVersion: ProcessInfo.processInfo.operatingSystemVersion.majorVersion))
+    }
+
+    static func windowAloneIsThePanel(osMajorVersion: Int) -> Bool {
+        return osMajorVersion >= 27
     }
 
     // Called when the auto-hide timer fires: true to re-arm instead of collapsing.

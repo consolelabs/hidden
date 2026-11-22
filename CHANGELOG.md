@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.13.3 (2026-11-23)
+
+### Added
+- Direct build on macOS 27: when a click on the arrow or the hotkey hides nothing, a short note under the arrow says why and what to do (running outside Applications, an icon macOS cannot keep visible while the pause switch is on, Accessibility missing, or every icon sitting right of the arrow). It shows once per reason per launch, never for auto-hide.
+### Fixed
+- macOS 26: auto-hide no longer waits on a notification banner. A banner puts up the same screen-tall Notification Center window as the panel, and the 26 check took any such window for the open panel, so a run of notifications held auto-hide for as long as they lasted (up to 10 minutes after the last one). Without Accessibility, which macOS 26 does not need for hiding, the window alone is no longer taken for the panel; with it, only the panel's Edit Widgets control counts ([#579](https://github.com/dwarvesf/hidden/issues/579)).
+- macOS 27 (direct build): when macOS refuses the updated hide list after an app starts, the icons that were hidden stay hidden. The bar used to show every hidden icon with a collapsed arrow and no auto-hide until you clicked the arrow; now it either stays collapsed or shows the expanded arrow and auto-hide retries.
+
 ## v1.13.2 (2026-11-19)
 
 ### Fixed
