@@ -882,18 +882,10 @@ final class AppStoreMigration {
     }
 
     /// Opens the new copy once this process has exited, so the new instance does
-    /// not see this one and quit as a duplicate.
+    /// not see this one and quit as a duplicate. The wait lives in AppRelaunch,
+    /// which the language row uses too, so the app has one such script.
     private func relaunch(at url: URL) {
-        let waiter = Process()
-        waiter.executableURL = URL(fileURLWithPath: "/bin/sh")
-        waiter.arguments = ["-c", "while /bin/kill -0 \"$1\" 2>/dev/null; do /bin/sleep 0.2; done; /usr/bin/open \"$2\"",
-                            "sh", String(ProcessInfo.processInfo.processIdentifier), url.path]
-        do {
-            try waiter.run()
-            NSApp.terminate(nil)
-        } catch {
-            NSLog("AppStoreMigration: relaunch failed: \(error.localizedDescription)")
-        }
+        AppRelaunch.now(at: url)
     }
 
     /// Modal migration alerts on screen now. The macOS Accessibility prompt

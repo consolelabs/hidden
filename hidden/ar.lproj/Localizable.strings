@@ -311,6 +311,15 @@
 "icons with no name" = "أيقونات بلا اسم";
 "Nothing to hide" = "لا شيء لإخفائه";
 "Every icon is right of the arrow, so there is nothing to hide. Hold Command and drag the arrow to the right of the icons you want to hide." = "كل الأيقونات إلى يسار السهم، لذا لا يوجد ما يمكن إخفاؤه. استمر بالضغط على Command واسحب السهم إلى يسار الأيقونات التي تريد إخفاءها.";
+
+/* Language */
+"Language" = "اللغة";
+"App language" = "لغة التطبيق";
+"System (follow macOS)" = "النظام (متابعة macOS)";
+"Takes effect after Hidden Bar restarts." = "يسري بعد إعادة تشغيل Hidden Bar.";
+"Restart Hidden Bar to apply the new language." = "أعد تشغيل Hidden Bar لتطبيق اللغة الجديدة.";
+"Restart Now" = "إعادة التشغيل الآن";
+"Later" = "لاحقًا";
 "Restore settings from the App Store version" = "استعادة الإعدادات من إصدار App Store";
 "Copies the settings the App Store version saved into this version. Your current settings are replaced." = "ينسخ الإعدادات التي حفظها إصدار App Store إلى هذه النسخة. سيتم استبدال إعداداتك الحالية.";
 "Restore…" = "استعادة…";

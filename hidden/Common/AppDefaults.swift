@@ -48,4 +48,11 @@ enum AppDefaults {
         suite.removePersistentDomain(forName: testSuiteName)
         return suite
     }
+
+    /// The domain this process keeps its own preferences in: the bundle domain
+    /// on a shipping launch, the test suite under XCTest. Readers that must not
+    /// see the global domain (where macOS keeps the system language) name this.
+    static var storeDomain: String? {
+        isRunningUnderXCTest ? testSuiteName : Bundle.main.bundleIdentifier
+    }
 }
