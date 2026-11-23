@@ -14,7 +14,7 @@ Guest: `hb-macos2721`, macOS 27.2.1 (26B131), app installed in `/Applications`, 
 
 Pass rule: every check observed on screen (VNC frames) and in `/tmp/hb.log`, not from one source alone.
 
-## Setup notes (recorded before check 1)
+## Setup notes (recorded after the check 1 launch and before check 2; the check 1 expectation above was written before it)
 
 - Command-drag over VNC did not move an icon on this guest (the click opened the SideNotes panel instead); Option-drag (`lalt`) did, as the kit docs predict. Placement used Option-drag.
 - Test icons left of the arrow: SideNotes (runs from `/Applications`, honoured by macOS) and iStat CPU. iStat runs from `~/Library/Application Support`, so macOS 27.2.1 hides it on every collapse whichever side of the arrow it sits on; SideNotes is the icon that tells the arrow's hiding apart from that quirk.
@@ -43,3 +43,7 @@ Turn on the always-hidden section in Settings > General. Place SideNotes left of
 Check 5 setup change (recorded before the cycles): with the always-hidden restriction held, macOS also hides the iStat items on expand (they run outside `/Applications`), so iStat cannot show the hidden section toggling. Sound and Wi-Fi Control Center items were switched on (`defaults -currentHost write com.apple.controlcenter Sound/WiFi -int 18`, then `killall ControlCenter`) as honoured icons. Layout used: SideNotes always hidden (left of the always-hidden separator), Sound in the hidden section (right of that separator, left of the arrow), Wi-Fi right of the arrow. Expected over two expand/collapse cycles: expanded shows Sound and not SideNotes; collapsed shows neither; Wi-Fi stays on the bar in both states.
 
 Check 5 revised arrangement (recorded before the cycles). Sound and Wi-Fi are Control Center items: the log classes them as visible system items and a collapse never hides them, so they cannot show a hidden section. Placement by Option-drag is also unreliable while the always-hidden restriction is held (the always-hidden area is off the bar). The arrangement was set in Settings > Icons instead: SideNotes = Hidden, iStat Menus = Always hidden, always-hidden section on. Expected over two expand/collapse cycles: collapsed, SideNotes is off the bar; expanded, SideNotes shows and the iStat items stay off (always hidden, and macOS also keeps them off); the log shows `hidden ["com.apptorium.SideNotes-paddle"]` and `always hidden` holding iStat, `arrow at x=` well above 0, no "not placed" line.
+
+## Control: Sound on the released build (written before running)
+
+The branch build left the Sound item visible, left of a placed arrow, through a collapse. Control on the released 1.13.4 (CDHash read from the guest copy): with Sound switched on (`defaults -currentHost write com.apple.controlcenter Sound -int 18`, `killall ControlCenter`) and the same layout, expected result is the same, Sound stays visible after collapse and the log never lists it under `hidden`. If Sound hides on the released build, check 5 fails.
