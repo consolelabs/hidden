@@ -659,8 +659,15 @@ final class AppStoreMigration {
         }
     }
 
+    /// Modal migration alerts on screen now. The macOS Accessibility prompt
+    /// would cover one, and Hidden Bar has no Dock icon to bring it back.
+    private(set) static var alertsOnScreen = 0
+    static var isAlertOnScreen: Bool { alertsOnScreen > 0 }
+
     @discardableResult
     private func run(_ alert: NSAlert, id: String) -> NSApplication.ModalResponse {
+        Self.alertsOnScreen += 1
+        defer { Self.alertsOnScreen -= 1 }
         NSApp.activate(ignoringOtherApps: true)
         #if DEBUG
         Self.scheduleDebugAnswer(for: id)

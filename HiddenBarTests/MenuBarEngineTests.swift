@@ -921,7 +921,8 @@ final class NativeVisibilityEngineTests: XCTestCase {
         collapses = 0
     }
 
-    private func makeEngine(expandsWhenCaptureStarts: Bool = true) -> NativeVisibilityEngine {
+    private func makeEngine(expandsWhenCaptureStarts: Bool = true,
+                            defersAuthorizationPrompt: @escaping () -> Bool = { false }) -> NativeVisibilityEngine {
         let items = self.items!
         return NativeVisibilityEngine(items: items, inventory: inventory, visibility: visibility, clock: clock,
                                       captureActivity: capture,
@@ -929,7 +930,25 @@ final class NativeVisibilityEngineTests: XCTestCase {
                                       itemFrame: { $0 === items.toggleItem ? separator : alwaysHiddenSeparator },
                                       displays: { [mainDisplay] },
                                       isLTR: { true },
+                                      defersAuthorizationPrompt: defersAuthorizationPrompt,
                                       expandsWhenCaptureStarts: { expandsWhenCaptureStarts })
+    }
+
+    // Given an alert of the app on screen (the settings import offer) and no Accessibility permission
+    // When the first collapse runs
+    // Then the system prompt is not requested, and the next collapse after the alert closes asks
+    func testAuthorizationPromptWaitsWhileAnAlertIsUp() {
+        inventory.isAuthorized = false
+        var alertIsUp = true
+        let engine = makeEngine(defersAuthorizationPrompt: { alertIsUp })
+        var results: [CollapseResult] = []
+        engine.collapse { results.append($0) }
+        XCTAssertEqual(results, [.refused(.accessibilityNeeded)], "the collapse is still refused")
+        XCTAssertEqual(inventory.authorizationRequests, 0, "the prompt would cover the alert")
+
+        alertIsUp = false
+        engine.collapse { results.append($0) }
+        XCTAssertEqual(inventory.authorizationRequests, 1, "skipping did not use up the one ask")
     }
 
     func testCollapseKeepsOnlyVisibleAppsAndSystemItems() {
