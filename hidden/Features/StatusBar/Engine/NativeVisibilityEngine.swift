@@ -168,6 +168,9 @@ final class NativeVisibilityEngine: MenuBarEngine {
     // (`pausesHidingForUnkeepableItems`) keeps the whole bar shown instead.
     private var unkeepableSystemItems: Set<String> = []
     private let pausesHidingForUnkeepableItems: () -> Bool
+    // True while an alert of the app is on screen: the system's Accessibility
+    // prompt would cover it, and the app has no Dock icon to bring it back.
+    private let defersAuthorizationPrompt: () -> Bool
     // Hidden extras leave Accessibility only once the bar has reflowed.
     var scheduleVisibilityCheck: (@escaping () -> Void) -> Void = {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: $0)
@@ -185,6 +188,7 @@ final class NativeVisibilityEngine: MenuBarEngine {
          isLTR: @escaping () -> Bool = { Constant.isUsingLTRLanguage },
          runsFromApplicationsFolder: @escaping () -> Bool = { true },
          pausesHidingForUnkeepableItems: @escaping () -> Bool = { false },
+         defersAuthorizationPrompt: @escaping () -> Bool = { false },
          expandsWhenCaptureStarts: @escaping () -> Bool = { true },
          sensitiveApps: @escaping () -> Set<String> = { [] },
          terminationNotifications: NotificationCenter = .default,
@@ -200,6 +204,7 @@ final class NativeVisibilityEngine: MenuBarEngine {
         self.pinnedSections = pinnedSections
         self.pinsSections = pinsSections
         self.pausesHidingForUnkeepableItems = pausesHidingForUnkeepableItems
+        self.defersAuthorizationPrompt = defersAuthorizationPrompt
         self.inventory = inventory
         self.visibility = visibility
         self.clock = clock
@@ -278,8 +283,11 @@ final class NativeVisibilityEngine: MenuBarEngine {
             }
             // Without Accessibility the sections cannot be read, and guessing would
             // hide icons the user kept visible. Not latched: it works as soon as
-            // the permission is granted.
-            inventory.requestAuthorization()
+            // the permission is granted. Skipped while an alert is up, so the
+            // next collapse asks instead.
+            if !defersAuthorizationPrompt() {
+                inventory.requestAuthorization()
+            }
             logUnavailableOnce("NativeVisibility: hiding unavailable: Accessibility permission is needed to read the menu-bar sections")
             return completion(.refused(.accessibilityNeeded))
         }

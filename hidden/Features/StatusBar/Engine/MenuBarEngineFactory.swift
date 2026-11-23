@@ -35,6 +35,7 @@ enum MenuBarEngineFactory {
                                                 },
                                                 runsFromApplicationsFolder: runsFromApplicationsFolder,
                                                 pausesHidingForUnkeepableItems: { Preferences.pauseHidingForUnkeepableItems },
+                                                defersAuthorizationPrompt: { AppStoreMigration.isAlertOnScreen },
                                                 expandsWhenCaptureStarts: { Preferences.showWholeBarWhenCaptureStarts },
                                                 sensitiveApps: { Preferences.presentationSensitiveApps },
                                                 sectionMemory: UserDefaultsSectionMemory(),
