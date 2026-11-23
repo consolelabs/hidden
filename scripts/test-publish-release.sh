@@ -58,10 +58,11 @@ case "$*" in
   "release edit v1.13.4 -R consolelabs/hidden --draft=false --latest") echo published > "$M/release"; echo "https://github.com/consolelabs/hidden/releases/tag/v1.13.4" ;;
   "pr create -R consolelabs/hidden --base master --head release/v1.13.4 "*) echo "https://github.com/consolelabs/hidden/pull/600" ;;
   "pr checks 600 -R consolelabs/hidden --json bucket --jq .[].bucket")
-    case "${STUB_CHECKS:-pass}" in none) echo "no checks reported on the 'release/v1.13.4' branch" >&2; exit 1 ;; fail) printf 'pass\nfail\n'; exit 1 ;; *) printf 'pass\npass\npass\n' ;; esac ;;
+    case "${STUB_CHECKS:-pass}" in empty) exit 0 ;; none) echo "no checks reported on the 'release/v1.13.4' branch" >&2; exit 1 ;; fail) printf 'pass\nfail\n'; exit 1 ;; *) printf 'pass\npass\npass\n' ;; esac ;;
   "pr view 600 -R consolelabs/hidden --json mergeable,headRefOid --jq "*) echo "MERGEABLE $STUB_SHA" ;;
   "pr merge 600 -R consolelabs/hidden --merge --match-head-commit $STUB_SHA")
     fails merge && { echo "GraphQL: Pull request is not mergeable" >&2; exit 1; }
+    fails signal && { for c in $(pgrep -P "$PPID"); do pkill -x -P "$c" tee && : > "$M/tee-killed"; done; kill -TERM "$PPID"; sleep 0.3; exit 1; }
     [ "$(amc)" = true ] || { echo "merge commits disabled" >&2; exit 1; }; : > "$M/merged" ;;
   "pr view 600 -R consolelabs/hidden --json state --jq .state") echo MERGED ;;
   *) echo "stub gh: unexpected: $*" >&2; exit 9 ;;
@@ -101,7 +102,8 @@ M="$STUB_MARKS"; echo "curl $*" >> "$M/calls"
 out=""; prev=""; for a in "$@"; do [ "$prev" = -o ] && out="$a"; prev="$a"; done
 url="${!#}"
 case "$url" in
-  https://github.com/consolelabs/hidden/releases/latest/download/appcast.xml) cp "$STUB_FEED" "$out" ;;
+  https://github.com/consolelabs/hidden/releases/latest/download/appcast.xml)
+    if [ -n "${STUB_STALE_ONCE:-}" ] && [ ! -e "$M/stale-served" ]; then : > "$M/stale-served"; cp "$STUB_STALE_ONCE" "$out"; else cp "$STUB_FEED" "$out"; fi ;;
   https://github.com/consolelabs/hidden/releases/latest/download/Hidden-Bar-macos.zip) cp "$STUB_ZIP" "$out" ;;
   *) echo "stub curl: unexpected: $*" >&2; exit 9 ;;
 esac
@@ -165,7 +167,7 @@ pub() { # fixture-dir args... : run the fixture's publish-release.sh with stubs 
   local d="$1"; shift
   ( cd "$d" && env -i PATH="$PATH_UNDER_TEST" HOME="$d" TMPDIR="$WORK" STUB_MARKS="$d.marks" STUB_SHA="$SHA" \
       STUB_CHANGELOG="$d/CHANGELOG.md" STUB_FEED="${STUB_FEED:-$d/build/release-1.13.4/appcast.xml}" \
-      STUB_ZIP="$d/build/release-1.13.4/Hidden-Bar-macos.zip" HB_PUBLISH_POLL=0 HB_PUBLISH_VERIFY_WAIT=0 HB_PUBLISH_NOCHECKS_GRACE=0 \
+      STUB_ZIP="$d/build/release-1.13.4/Hidden-Bar-macos.zip" ${STUB_STALE_ONCE:+STUB_STALE_ONCE=$STUB_STALE_ONCE} HB_PUBLISH_POLL=0 HB_PUBLISH_VERIFY_WAIT=0 HB_PUBLISH_NOCHECKS_GRACE=0 \
       ${EXTRA_ENV:-} bash scripts/publish-release.sh --title "fixture title" "$@" )
 }
 
@@ -340,6 +342,22 @@ no_checks() {
 }
 t no-pr-checks-stop-before-the-toggle no_checks
 
+empty_checks() { # zero checks with exit 0 is not a pass
+  local d o rc; d="$(fixture emptychecks)"
+  o="$(EXTRA_ENV=STUB_CHECKS=empty pub "$d" --apply 2>&1)"; rc=$?
+  [ "$rc" = 1 ] && printf '%s' "$o" | grep -q 'no checks reported on PR #600' && ! grep -q -- '-X PATCH' "$d.marks/calls" || { echo "rc $rc: $(printf '%s' "$o" | grep -E 'FAILED|7c' | head -1)"; return 1; }
+}
+t zero-pr-checks-stop-before-the-toggle empty_checks
+
+signal_mid_merge() { # TERM during the merge with the log pipe gone: the EXIT trap alone restores the setting
+  local d rc; d="$(fixture signal)"
+  EXTRA_ENV=STUB_FAIL=signal pub "$d" --apply >/dev/null 2>&1; rc=$?
+  [ -e "$d.marks/tee-killed" ] || { echo "the stub did not find the log pipe's tee"; return 1; }
+  [ "$rc" != 0 ] && [ "$(cat "$d.marks/amc")" = false ] && [ "$(grep -c 'allow_merge_commit=false' "$d.marks/calls")" = 1 ] \
+    || { echo "rc $rc, amc $(cat "$d.marks/amc"), restores $(grep -c 'allow_merge_commit=false' "$d.marks/calls")"; return 1; }
+}
+t term-mid-merge-trap-restores-allow-merge-commit signal_mid_merge
+
 skip_master() {
   local d o rc; d="$(fixture skip)"
   o="$(pub "$d" --apply --skip-master 2>&1)"; rc=$?
@@ -358,6 +376,14 @@ stale_feed() { # the live feed still serves the prior release: verify fails, the
     && printf '%s' "$o" | sed -n '/left to do by hand/,$p' | grep -q '\[7a\] master: release branch' && ! grep -q '^git -C [^ ]* branch' "$d.marks/calls" || { echo "rc $rc"; return 1; }
 }
 t verify-failure-stops-before-master stale_feed
+
+stale_then_fresh() { # a cached old feed on the first read is retried, not a stop
+  local d o rc; d="$(fixture stalefresh)"
+  appcast 1.13.3 24 > "$d.stale.xml"
+  o="$(STUB_STALE_ONCE="$d.stale.xml" pub "$d" --apply --skip-master 2>&1)"; rc=$?
+  [ "$rc" = 0 ] && [ -e "$d.marks/stale-served" ] && [ "$(grep -c '^curl ' "$d.marks/calls")" = 3 ] || { echo "rc $rc: $(printf '%s' "$o" | grep FAILED)"; return 1; }
+}
+t verify-retries-a-stale-200-read stale_then_fresh
 
 # ---- structure -----------------------------------------------------------------------------
 

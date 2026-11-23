@@ -84,6 +84,9 @@ on_exit() {
 }
 
 setup_traps() {
+  # a dead log pipe (tee gone after a HUP or a dropped ssh) must not kill the run before the
+  # EXIT trap restores allow_merge_commit: ignore SIGPIPE, so a failed print is only an error
+  trap '' PIPE
   trap on_exit EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM
@@ -97,7 +100,7 @@ mut() { # cmd... : one write, run once and never retried; logged to done.log on 
   [ "$MODE" = apply ] || { echo "$ME: internal error: a write outside --apply: $(q "$@")" >&2; exit 2; }
   say "  run: $(q "$@")"
   "$@" > "$T/mut.out" 2>&1; rc=$?
-  sed 's/^/    /' "$T/mut.out" | head -8
+  sed -n '1,8s/^/    /p' "$T/mut.out"
   if [ "$rc" = 0 ]; then q "$@" >> "$T/done.log"; echo >> "$T/done.log"
   else FAIL_REASON="exit $rc from $(q "$@"): $(tail -2 "$T/mut.out" | tr '\n' ' ')"; fi
   return "$rc"
@@ -340,36 +343,55 @@ step_5() {
   local out
   act "$1" gh release edit "v$VER" -R "$REPO_SLUG" --draft=false --latest || return 1
   [ "$1" = plan ] && { chk "gh release view (latest) is v$VER, not a draft"; return 0; }
-  out="$(gh release view -R "$REPO_SLUG" --json tagName,isDraft --jq '"\(.tagName) \(.isDraft)"' 2>&1)"
-  [ "$out" = "v$VER false" ] || { FAIL_REASON="latest release reads '$out', expected 'v$VER false'"; return 1; }
+  retry_read latest_is_new || return 1
   ok 5 "v$VER is the latest published release"
 }
 
-fetch_200() { # url dest : GET with bounded retries (a read); rc 1 and FAIL_REASON when never 200
-  local i=1 code
+retry_read() { # check-fn : a read-back that may see a stale cache just after a write; up to VERIFY_TRIES
+  local i=1
   while :; do
-    code="$(curl -sSL --proto '=https' --proto-redir '=https' --max-time 300 -o "$2" -w '%{http_code}' "$1" 2>/dev/null)"
-    [ "$code" = 200 ] && return 0
-    [ "$i" -ge "$VERIFY_TRIES" ] && { FAIL_REASON="$1 returned ${code:-no response} after $i tries"; return 1; }
+    "$1" && return 0
+    [ "$i" -ge "$VERIFY_TRIES" ] && { FAIL_REASON="$FAIL_REASON (after $i tries)"; return 1; }
     i=$((i + 1)); sleep "$VERIFY_WAIT"
   done
 }
 
-step_6() {
+latest_is_new() {
+  local out
+  out="$(gh release view -R "$REPO_SLUG" --json tagName,isDraft --jq '"\(.tagName) \(.isDraft)"' 2>&1)"
+  [ "$out" = "v$VER false" ] || { FAIL_REASON="latest release reads '$out', expected 'v$VER false'"; return 1; }
+}
+
+fetch_200() { # url dest : one GET; rc 1 and FAIL_REASON when not 200
+  local code
+  code="$(curl -sSL --proto '=https' --proto-redir '=https' --max-time 300 -o "$2" -w '%{http_code}' "$1" 2>/dev/null)"
+  [ "$code" = 200 ] || { FAIL_REASON="$1 returned ${code:-no response}"; return 1; }
+}
+
+live_feed_ok() {
   local short got want
-  if [ "$1" = plan ]; then
-    chk "curl $FEED_URL is 200, its first sparkle:shortVersionString is $VER, its sha256 equals SHA256SUMS"
-    chk "curl $LATEST_ZIP_URL is 200, its sha256 equals SHA256SUMS"
-    return 0
-  fi
   fetch_200 "$FEED_URL" "$T/feed.xml" || return 1
   short="$(first_tag_value "$T/feed.xml" sparkle:shortVersionString)"
   [ "$short" = "$VER" ] || { FAIL_REASON="the live feed's first shortVersionString is '$short', not $VER"; return 1; }
   got="$(sha_of "$T/feed.xml")"; want="$(sum_of "$DIR/SHA256SUMS" appcast.xml)"
   [ "$got" = "$want" ] || { FAIL_REASON="the live appcast.xml sha256 $got is not SHA256SUMS's $want"; return 1; }
+}
+
+live_zip_ok() {
+  local got want
   fetch_200 "$LATEST_ZIP_URL" "$T/latest.zip" || return 1
   got="$(sha_of "$T/latest.zip")"; want="$(sum_of "$DIR/SHA256SUMS" Hidden-Bar-macos.zip)"
   [ "$got" = "$want" ] || { FAIL_REASON="the live Hidden-Bar-macos.zip sha256 $got is not SHA256SUMS's $want"; return 1; }
+}
+
+step_6() {
+  if [ "$1" = plan ]; then
+    chk "curl $FEED_URL is 200, its first sparkle:shortVersionString is $VER, its sha256 equals SHA256SUMS"
+    chk "curl $LATEST_ZIP_URL is 200, its sha256 equals SHA256SUMS"
+    return 0
+  fi
+  retry_read live_feed_ok || return 1
+  retry_read live_zip_ok || return 1
   ok 6 "feed 200, item 1 is $VER, appcast and zip sha256 equal SHA256SUMS"
 }
 
@@ -400,19 +422,20 @@ step_7c() {
   while :; do
     now="$(date +%s)"
     out="$(gh pr checks "$PR_NUM" -R "$REPO_SLUG" --json bucket --jq '.[].bucket' 2>&1)"; rc=$?
-    buckets="$(printf '%s\n' "$out" | sort | uniq -c | awk '{printf "%s%s %s", (NR>1?", ":""), $1, $2}')"
-    case "$out" in
-      *"no checks reported"*)
-        [ $((now - start)) -ge "$NOCHECKS_GRACE" ] && { FAIL_REASON="no checks reported on PR #$PR_NUM after ${NOCHECKS_GRACE}s; check it by hand before merging"; return 1; } ;;
-      *)
-        if [ "$rc" != 0 ] && ! printf '%s\n' "$out" | grep -qxE 'pass|fail|pending|skipping|cancel'; then
-          errs=$((errs + 1)); [ "$errs" -ge 3 ] && { FAIL_REASON="gh pr checks failed 3 times: $(printf '%s' "$out" | head -1)"; return 1; }
-        else
-          errs=0
-          printf '%s\n' "$out" | grep -qxE 'fail|cancel' && { FAIL_REASON="PR #$PR_NUM checks: $buckets"; return 1; }
-          printf '%s\n' "$out" | grep -qx pending || break
-        fi ;;
-    esac
+    buckets="$(printf '%s\n' "$out" | grep -xE 'pass|fail|pending|skipping|cancel' | sort | uniq -c | awk '{printf "%s%s %s", (NR>1?", ":""), $1, $2}')"
+    if printf '%s\n' "$out" | grep -qxE 'pass|fail|pending|skipping|cancel'; then
+      errs=0
+      printf '%s\n' "$out" | grep -qxE 'fail|cancel' && { FAIL_REASON="PR #$PR_NUM checks: $buckets"; return 1; }
+      if ! printf '%s\n' "$out" | grep -qx pending; then
+        printf '%s\n' "$out" | grep -qx pass && break
+        # only skipped checks: nothing actually ran, so treat it like no checks
+        [ $((now - start)) -ge "$NOCHECKS_GRACE" ] && { FAIL_REASON="PR #$PR_NUM has only skipped checks ($buckets); check it by hand before merging"; return 1; }
+      fi
+    elif [ "$rc" = 0 ] || printf '%s' "$out" | grep -q 'no checks reported'; then
+      [ $((now - start)) -ge "$NOCHECKS_GRACE" ] && { FAIL_REASON="no checks reported on PR #$PR_NUM after ${NOCHECKS_GRACE}s; check it by hand before merging"; return 1; }
+    else
+      errs=$((errs + 1)); [ "$errs" -ge 3 ] && { FAIL_REASON="gh pr checks failed 3 times: $(printf '%s' "$out" | head -1)"; return 1; }
+    fi
     [ $((now - start)) -ge "$CHECKS_TIMEOUT" ] && { FAIL_REASON="PR #$PR_NUM checks still pending after ${CHECKS_TIMEOUT}s ($buckets)"; return 1; }
     sleep "$POLL"
   done
