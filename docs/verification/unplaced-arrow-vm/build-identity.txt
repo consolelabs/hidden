@@ -1,0 +1,17 @@
+build: https://github.com/consolelabs/hidden.git ref 6938b09 HEAD 6938b0949393b908ccae02f240a46be91094f009
+fix(native): treat an arrow within its width of the edge as unplaced
+signing: Developer ID Application (team W777S7V8TN, trusted ref)
+xcodebuild archive, Release-Direct, app taken from the .xcarchive, not notarized
+Identifier=com.dwarvesv.minimalbar
+CodeDirectory v=20500 size=2499 flags=0x10000(runtime) hashes=67+7 location=embedded
+CandidateCDHash sha256=eeb9dd129fa16f3633601fa99c9451bfe97f73b5
+CandidateCDHashFull sha256=eeb9dd129fa16f3633601fa99c9451bfe97f73b5bf22fef6f9f94b3c4272640b
+CDHash=eeb9dd129fa16f3633601fa99c9451bfe97f73b5
+Authority=Developer ID Application: Dwarves Foundation Company Limited (W777S7V8TN)
+Authority=Developer ID Certification Authority
+Authority=Apple Root CA
+Timestamp=23 Nov 2026 at 21:12:27
+TeamIdentifier=W777S7V8TN
+verify-ok
+1.13.4
+25
