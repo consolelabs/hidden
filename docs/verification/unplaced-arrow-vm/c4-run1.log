@@ -1,0 +1,10 @@
+2026-11-23 06:33:21.829 Hidden Bar[2018:14796] AppStoreMigration: other running copy decision launch
+2026-11-23 06:33:21.830 Hidden Bar[2018:14796] LegacyLoginItem: none
+2026-11-23 06:33:21.845 Hidden Bar[2018:14796] AutoStart: unregister failed: The operation couldn’t be completed. Operation not permitted
+2026-11-23 06:33:21.858 Hidden Bar[2018:14796] AutoStart: status = 3
+2026-11-23 06:33:21.863 Hidden Bar[2018:259] AppStoreMigration: no backup written: one already exists
+2026-11-23 06:33:21.864 Hidden Bar[2018:259] AppStoreMigration: import offer skipped: already answered
+2026-11-23 06:33:22.886 Hidden Bar[2018:14817] NativeVisibility: re-read 4 apps that timed out, 4 still missing
+2026-11-23 06:33:22.886 Hidden Bar[2018:14817] NativeVisibility: inventory of 34 apps took 67 ms
+2026-11-23 06:33:22.888 Hidden Bar[2018:14796] NativeVisibility: arrow at x=556.0; visible ["com.apple.UIKitSystemApp", "com.apple.campo", "com.apple.chronod", "com.apple.sharingd", "com.bjango.istatmenus.status"], hidden ["com.apptorium.SideNotes-paddle"], always hidden []
+2026-11-23 06:33:22.889 Hidden Bar[2018:14796] NativeVisibility: macOS hides ["iStat Menus Menubar"] although they are allowed: they run from outside an Applications folder

@@ -454,6 +454,12 @@ final class NativeVisibilityEngine: MenuBarEngine {
             alwaysHiddenFrame = CGRect(x: x, y: boundary.minY, width: 1, height: boundary.height)
         }
         #endif
+        // Measured from an arrow macOS has not placed, every icon is right of it:
+        // nothing would hide, and the read would be cached and remembered.
+        guard Self.isPlaced(arrow: boundary, displays: displays()) else {
+            NSLog("NativeVisibility: the arrow at \(NSStringFromRect(boundary)) is not placed in the menu bar yet; sections not read")
+            return body(nil)
+        }
         let isLTR = self.isLTR()
         generation += 1
         let generation = self.generation
@@ -587,6 +593,29 @@ final class NativeVisibilityEngine: MenuBarEngine {
     // Any arrangement works: whatever sits left of the arrow is the hidden section.
     var isArrangementValid: Bool {
         return true
+    }
+
+    // The launch collapse waits until macOS has put the arrow in the bar.
+    var isArrangementKnown: Bool {
+        guard let arrow = items?.toggleItem, let frame = itemFrame(arrow) else { return false }
+        return Self.isPlaced(arrow: frame, displays: displays())
+    }
+
+    // macOS reports a status item it has not put in the bar yet at the left edge
+    // of the display: (0, 0) on macOS 26 (#336), midX 16 at launch on a crowded
+    // 27.2 bar (#584). No status item sits within its own width of that edge in
+    // either direction: the Apple menu holds it left to right, macOS's own items
+    // right to left. An arrow on no display is left to the caller.
+    static func isPlaced(arrow frame: CGRect, displays: [MenuBarDisplay]) -> Bool {
+        let leftEdge: CGFloat
+        if let display = MenuBarDisplay.containing(appKitFrame: frame, in: displays) {
+            leftEdge = display.appKitFrame.minX
+        } else if displays.isEmpty {
+            leftEdge = 0
+        } else {
+            return true
+        }
+        return frame.minX >= leftEdge + max(frame.width, 1)
     }
 
     var isAlwaysHiddenSeparatorPlaced: Bool {

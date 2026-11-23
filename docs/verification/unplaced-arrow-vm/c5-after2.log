@@ -1,0 +1,21 @@
+2026-11-23 06:33:37.069 Hidden Bar[2059:15068] AppStoreMigration: other running copy decision launch
+2026-11-23 06:33:37.069 Hidden Bar[2059:15068] LegacyLoginItem: none
+2026-11-23 06:33:37.081 Hidden Bar[2059:15068] AutoStart: unregister failed: The operation couldn’t be completed. Operation not permitted
+2026-11-23 06:33:37.092 Hidden Bar[2059:15068] AutoStart: status = 3
+2026-11-23 06:33:37.096 Hidden Bar[2059:259] AppStoreMigration: no backup written: one already exists
+2026-11-23 06:33:37.096 Hidden Bar[2059:259] AppStoreMigration: import offer skipped: already answered
+2026-11-23 06:33:38.155 Hidden Bar[2059:15082] NativeVisibility: re-read 4 apps that timed out, 4 still missing
+2026-11-23 06:33:38.155 Hidden Bar[2059:15082] NativeVisibility: inventory of 34 apps took 74 ms
+2026-11-23 06:33:38.157 Hidden Bar[2059:15068] NativeVisibility: arrow at x=556.0; visible ["com.apple.UIKitSystemApp", "com.apple.campo", "com.apple.chronod", "com.apple.sharingd", "com.bjango.istatmenus.status"], hidden ["com.apptorium.SideNotes-paddle"], always hidden []
+2026-11-23 06:33:38.157 Hidden Bar[2059:15068] NativeVisibility: macOS hides ["iStat Menus Menubar"] although they are allowed: they run from outside an Applications folder
+2026-11-23 06:34:23.089 Hidden Bar[2059:15481] NativeVisibility: re-read 4 apps that timed out, 4 still missing
+2026-11-23 06:34:23.089 Hidden Bar[2059:15481] NativeVisibility: inventory of 34 apps took 2 ms
+2026-11-23 06:34:23.091 Hidden Bar[2059:15068] NativeVisibility: arrow at x=556.0; visible ["com.apple.UIKitSystemApp", "com.apple.campo", "com.apple.chronod", "com.apple.sharingd", "com.bjango.istatmenus.status"], hidden ["com.apptorium.SideNotes-paddle"], always hidden []
+2026-11-23 06:34:52.456 Hidden Bar[2059:259] AutoCollapse: holding for the pointer in the menu bar
+2026-11-23 06:34:58.930 Hidden Bar[2059:15655] NativeVisibility: re-read 4 apps that timed out, 4 still missing
+2026-11-23 06:34:58.930 Hidden Bar[2059:15655] NativeVisibility: inventory of 34 apps took 9 ms
+2026-11-23 06:34:58.930 Hidden Bar[2059:15938] NativeVisibility: re-read 4 apps that timed out, 4 still missing
+2026-11-23 06:34:58.930 Hidden Bar[2059:15938] NativeVisibility: inventory of 34 apps took 7 ms
+2026-11-23 06:34:58.935 Hidden Bar[2059:15068] NativeVisibility: arrow at x=556.0; visible ["com.apple.UIKitSystemApp", "com.apple.campo", "com.apple.chronod", "com.apple.sharingd", "com.bjango.istatmenus.status"], hidden [], always hidden ["com.apptorium.SideNotes-paddle"]
+2026-11-23 06:35:20.003 Hidden Bar[2059:259] AutoCollapse: holding for the pointer in the menu bar
+2026-11-23 06:36:01.400 Hidden Bar[2059:15068] NativeVisibility: holding 6 apps (was 5); newly allowed ["com.apple.wifi.WiFiAgent"]
