@@ -787,6 +787,148 @@ final class NothingToHideTests: XCTestCase {
     }
 }
 
+// #584: at launch on a crowded macOS 27.2 bar, AppKit reported the arrow at
+// x 0 (logged as "arrow at x=16.0"), so every icon read as right of it.
+final class UnplacedArrowTests: XCTestCase {
+    private let own = "com.dwarvesv.minimalbar"
+    private let unplaced = CGRect(x: 0, y: 976, width: 32, height: 24)
+    private var arrowFrame: CGRect!
+    private var items: FakeItems!
+    private var inventory: FakeInventory!
+    private var visibility: FakeVisibility!
+    private var observed: InMemorySectionMemory!
+    private var table: InMemorySectionMemory!
+    private var pins = false
+    private var settled = 0
+    private var reads = 0
+
+    override func setUp() {
+        super.setUp()
+        arrowFrame = unplaced
+        items = FakeItems()
+        inventory = FakeInventory()
+        inventory.items = [item("com.always", x: 900), item("com.hidden", x: 1100), item("com.visible", x: 1400)]
+        visibility = FakeVisibility()
+        observed = InMemorySectionMemory()
+        table = InMemorySectionMemory()
+        pins = false
+        settled = 0
+        reads = 0
+    }
+
+    private func makeEngine() -> NativeVisibilityEngine {
+        let items = self.items!
+        let engine = NativeVisibilityEngine(items: items, inventory: inventory, visibility: visibility, clock: FakeClock(),
+                                            ownBundleIdentifier: own,
+                                            itemFrame: { [unowned self] in $0 === items.toggleItem ? arrowFrame : alwaysHiddenSeparator },
+                                            displays: { [mainDisplay] },
+                                            isLTR: { true },
+                                            sectionMemory: observed,
+                                            pinnedSections: table,
+                                            pinsSections: { [unowned self] in pins })
+        engine.onUnrestrictedRead = { [unowned self] _, _ in reads += 1 }
+        return engine
+    }
+
+    private func succeedPending() {
+        while settled < visibility.requests.count {
+            visibility.succeed(settled)
+            settled += 1
+        }
+    }
+
+    private func collapse(_ engine: NativeVisibilityEngine) -> CollapseResult? {
+        var result: CollapseResult?
+        engine.collapse { result = $0 }
+        succeedPending()
+        return result
+    }
+
+    // Given the launch collapse, with macOS not having placed the arrow yet
+    // When the sections are read
+    // Then nothing is read, held or remembered, and no "Nothing to hide" notice shows
+    func testAnUnplacedArrowIsNotReadAndShowsNoNotice() {
+        let engine = makeEngine()
+        let result = collapse(engine)
+        XCTAssertEqual(result, .unavailable)
+        XCTAssertNil(result?.noHideReason, "no Nothing to hide notice for an arrow macOS has not placed")
+        XCTAssertEqual(engine.state, .expanded)
+        XCTAssertEqual(visibility.requests.count, 0)
+        XCTAssertEqual(observed.sections, [:])
+        XCTAssertEqual(reads, 0)
+    }
+
+    // Given a launch read from an unplaced arrow
+    // When the arrow is placed mid-bar and the user collapses
+    // Then the icons left of it hide and are remembered as hidden
+    func testAPlacedArrowAfterAnUnplacedLaunchHidesTheIconsLeftOfIt() {
+        let engine = makeEngine()
+        _ = collapse(engine)
+        engine.expand()
+        arrowFrame = separator
+        let result = collapse(engine)
+        XCTAssertEqual(result, .collapsed)
+        XCTAssertEqual(visibility.requests.last?.bundles, [own, "com.visible"])
+        XCTAssertEqual(observed.sections, ["com.always": .hidden, "com.hidden": .hidden, "com.visible": .visible])
+    }
+
+    // Given the always-hidden section hidden while expanded (a restriction is held,
+    // so the cached read stands in for fresh ones)
+    // When the launch read came from an unplaced arrow and the user collapses later
+    // Then that collapse reads the placed arrow and hides, instead of hiding nothing all session
+    func testTheAlwaysHiddenSectionDoesNotKeepAnUnplacedLaunchRead() {
+        let engine = makeEngine()
+        engine.updateAlwaysHiddenSection(enabled: true, separatorHidden: true)
+        succeedPending()
+        arrowFrame = separator
+        let result = collapse(engine)
+        XCTAssertEqual(result, .collapsed)
+        XCTAssertEqual(visibility.requests.last?.bundles, [own, "com.visible"])
+    }
+
+    // Given pinned sections, and an app pinned visible in Settings › Icons although it sits left of the arrow
+    // When the launch read comes from an unplaced arrow and a later read from the placed one
+    // Then the later read is not taken for a drag: the app stays pinned visible
+    func testAnUnplacedLaunchReadDoesNotTurnAPinnedChoiceIntoADrag() {
+        pins = true
+        inventory.items = [item("com.pinned", x: 1100), item("com.visible", x: 1400)]
+        observed.sections = ["com.pinned": .hidden, "com.visible": .visible]
+        table.sections = ["com.pinned": .visible, "com.visible": .visible]
+        let engine = makeEngine()
+        _ = collapse(engine)
+        engine.expand()
+        arrowFrame = separator
+        _ = collapse(engine)
+        XCTAssertEqual(table.sections["com.pinned"], .visible)
+        XCTAssertEqual(visibility.requests.last?.bundles, [own, "com.pinned", "com.visible"])
+    }
+
+    // The controller's launch collapse retries while the arrangement is unknown.
+    func testTheLaunchCollapseWaitsUntilTheArrowIsPlaced() {
+        let engine = makeEngine()
+        XCTAssertFalse(engine.isArrangementKnown)
+        arrowFrame = CGRect(x: 0, y: 0, width: 32, height: 24)
+        XCTAssertFalse(engine.isArrangementKnown, "macOS 26 reports (0, 0) before placing (#336)")
+        arrowFrame = separator
+        XCTAssertTrue(engine.isArrangementKnown)
+    }
+
+    func testPlacementIsJudgedFromTheLeftEdgeOfTheArrowsDisplay() {
+        let displays = MenuBarDisplay.displays(screenFrames: [CGRect(x: 0, y: 0, width: 2000, height: 1000),
+                                                              CGRect(x: -1600, y: 0, width: 1600, height: 900)])
+        XCTAssertFalse(NativeVisibilityEngine.isPlaced(arrow: unplaced, displays: displays))
+        XCTAssertTrue(NativeVisibilityEngine.isPlaced(arrow: separator, displays: displays))
+        // Right to left, status items start at the left, after macOS's own items.
+        XCTAssertTrue(NativeVisibilityEngine.isPlaced(arrow: CGRect(x: 180, y: 976, width: 32, height: 24), displays: displays))
+        // A display left of the primary one has negative x.
+        XCTAssertFalse(NativeVisibilityEngine.isPlaced(arrow: CGRect(x: -1600, y: 876, width: 32, height: 24), displays: displays))
+        XCTAssertTrue(NativeVisibilityEngine.isPlaced(arrow: CGRect(x: -400, y: 876, width: 32, height: 24), displays: displays))
+        // With no display to measure from, only x 0 counts as unplaced.
+        XCTAssertFalse(NativeVisibilityEngine.isPlaced(arrow: unplaced, displays: []))
+        XCTAssertTrue(NativeVisibilityEngine.isPlaced(arrow: separator, displays: []))
+    }
+}
+
 final class UnkeepableItemsOptInTests: XCTestCase {
     private func collapse(_ inventoryItems: [MenuBarInventoryItem], optIn: Bool) -> (requests: Int, result: CollapseResult?) {
         let items = FakeItems()
