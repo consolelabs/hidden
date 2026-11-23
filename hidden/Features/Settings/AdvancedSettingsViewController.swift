@@ -10,6 +10,7 @@ import AppKit
 /// Settings most people never change.
 final class AdvancedSettingsViewController: SettingsPaneController {
     private var macOSAlsoHidesCaption: NSTextField?
+    private var restoreCaptionLabel: NSTextField?
 
     /// English title of a "Right-click on the arrow" choice, also its Localizable.strings key.
     static func rightClickTitle(for choice: RightClickAction) -> String {
@@ -76,8 +77,35 @@ final class AdvancedSettingsViewController: SettingsPaneController {
                              control: method))
         // One group: every row here is set once, if ever.
         addSection(nil, rows: rows)
+        #if HIDDENBAR_NATIVE_VISIBILITY
+        if AppStoreMigration.shared.canRestore {
+            addSection(nil, rows: [restoreRow()])
+        }
+        #endif
         refreshAll()
     }
+
+    #if HIDDENBAR_NATIVE_VISIBILITY
+    /// Always available while the App Store settings (or their backup) can be
+    /// read, whatever the once-only import answer says.
+    private func restoreRow() -> NSView {
+        let button = NSButton(title: "Restore…".localized, target: self, action: #selector(restoreFromAppStore))
+        button.controlSize = .small
+        button.bezelStyle = .rounded
+        button.identifier = NSUserInterfaceItemIdentifier("restoreAppStoreSettings")
+        let row = SettingsForm.row("Restore settings from the App Store version".localized,
+                                   caption: "Copies the settings the App Store version saved into this version. Your current settings are replaced.".localized,
+                                   control: button)
+        restoreCaptionLabel = (row.subviews.first { $0 is NSStackView } as? NSStackView)?.arrangedSubviews.last as? NSTextField
+        return row
+    }
+
+    @objc private func restoreFromAppStore() {
+        AppStoreMigration.shared.offerRestore(in: view.window) { [weak self] count in
+            self?.restoreCaptionLabel?.stringValue = String(format: "Settings restored: %d".localized, count)
+        }
+    }
+    #endif
 
     // A popup, not a switch: it names both choices, like the menu it replaces.
     private func rightClickRow() -> NSView {

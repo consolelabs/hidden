@@ -309,3 +309,10 @@ Steps to view always hidden icons:
 "icons with no name" = "icons with no name";
 "Nothing to hide" = "Nothing to hide";
 "Every icon is right of the arrow, so there is nothing to hide. Hold Command and drag the arrow to the right of the icons you want to hide." = "Every icon is right of the arrow, so there is nothing to hide. Hold Command and drag the arrow to the right of the icons you want to hide.";
+"Restore settings from the App Store version" = "Restore settings from the App Store version";
+"Copies the settings the App Store version saved into this version. Your current settings are replaced." = "Copies the settings the App Store version saved into this version. Your current settings are replaced.";
+"Restore…" = "Restore…";
+"Restore your settings from the App Store version?" = "Restore your settings from the App Store version?";
+"This replaces the settings you have now with the ones the App Store version saved." = "This replaces the settings you have now with the ones the App Store version saved.";
+"Restore" = "Restore";
+"Settings restored: %d" = "Settings restored: %d";

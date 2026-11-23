@@ -325,3 +325,10 @@
 "icons with no name" = "沒有名稱的圖示";
 "Nothing to hide" = "沒有可隱藏的項目";
 "Every icon is right of the arrow, so there is nothing to hide. Hold Command and drag the arrow to the right of the icons you want to hide." = "所有圖示都在箭頭右側，因此沒有可隱藏的項目。按住 Command 鍵並將箭頭拖到想隱藏的圖示右側。";
+"Restore settings from the App Store version" = "從 App Store 版回復設定";
+"Copies the settings the App Store version saved into this version. Your current settings are replaced." = "將 App Store 版儲存的設定拷貝到此版本。您目前的設定會被取代。";
+"Restore…" = "回復⋯";
+"Restore your settings from the App Store version?" = "要從 App Store 版回復您的設定嗎？";
+"This replaces the settings you have now with the ones the App Store version saved." = "這會以 App Store 版儲存的設定取代您目前的設定。";
+"Restore" = "回復";
+"Settings restored: %d" = "已回復的設定數：%d";

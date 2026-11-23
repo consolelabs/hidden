@@ -69,6 +69,8 @@ The App Store version cannot hide icons on macOS 27; the direct build can. To sw
    - **Move the App Store copy to the Trash**, if it is still installed. When macOS refuses (an App Store install can belong to the system), Hidden Bar says so and names the path to drag to the Trash in Finder.
    - **Move to Applications**, when it runs from Downloads or a temporary folder.
 
+The import is offered once, so a missed or dismissed offer is not the end. The first time it can read the App Store settings, Hidden Bar also saves the importable ones to `~/Library/Application Support/Hidden Bar/AppStoreSettingsBackup.plist` (readable by you only, never overwritten). **Settings > Advanced > Restore settings from the App Store version** copies them back at any time, after you confirm, reading the App Store container first and the backup when the container is gone or macOS blocks it. The row shows only while one of the two can be read. The log line "AppStoreMigration: import offer skipped: ..." says why the launch offer did not show; see "Capture a log".
+
 ## Settings window
 
 Tabs in a centered control at the top (Cmd+1 to Cmd+5). A status card at the top of General says whether Hidden Bar is working, and if not, what to do (grant Accessibility, move to Applications, or that the App Store build cannot hide on macOS 27). The "Your menu bar" preview draws the edge the running engine uses: the arrow on the macOS 27 direct build, the "|" separator otherwise.

@@ -312,3 +312,10 @@ Passi per mostrare le icone sempre nascoste:
 "icons with no name" = "icone senza nome";
 "Nothing to hide" = "Niente da nascondere";
 "Every icon is right of the arrow, so there is nothing to hide. Hold Command and drag the arrow to the right of the icons you want to hide." = "Tutte le icone sono a destra della freccia, quindi non c’è nulla da nascondere. Tieni premuto il tasto Comando e trascina la freccia a destra delle icone che vuoi nascondere.";
+"Restore settings from the App Store version" = "Ripristina le impostazioni dalla versione dell’App Store";
+"Copies the settings the App Store version saved into this version. Your current settings are replaced." = "Copia in questa versione le impostazioni salvate dalla versione dell’App Store. Le impostazioni attuali vengono sostituite.";
+"Restore…" = "Ripristina…";
+"Restore your settings from the App Store version?" = "Vuoi ripristinare le impostazioni dalla versione dell’App Store?";
+"This replaces the settings you have now with the ones the App Store version saved." = "Le impostazioni attuali verranno sostituite da quelle salvate dalla versione dell’App Store.";
+"Restore" = "Ripristina";
+"Settings restored: %d" = "Impostazioni ripristinate: %d";

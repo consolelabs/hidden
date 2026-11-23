@@ -310,3 +310,10 @@ Jak wyświetlić ikony „Zawsze ukryte”:
 "icons with no name" = "ikony bez nazwy";
 "Nothing to hide" = "Nie ma czego ukryć";
 "Every icon is right of the arrow, so there is nothing to hide. Hold Command and drag the arrow to the right of the icons you want to hide." = "Wszystkie ikony są na prawo od strzałki, więc nie ma czego ukryć. Przytrzymaj Command i przeciągnij strzałkę na prawo od ikon, które chcesz ukryć.";
+"Restore settings from the App Store version" = "Przywróć ustawienia z wersji z App Store";
+"Copies the settings the App Store version saved into this version. Your current settings are replaced." = "Kopiuje do tej wersji ustawienia zapisane przez wersję z App Store. Obecne ustawienia zostaną zastąpione.";
+"Restore…" = "Przywróć…";
+"Restore your settings from the App Store version?" = "Przywrócić ustawienia z wersji z App Store?";
+"This replaces the settings you have now with the ones the App Store version saved." = "Obecne ustawienia zostaną zastąpione tymi, które zapisała wersja z App Store.";
+"Restore" = "Przywróć";
+"Settings restored: %d" = "Przywrócone ustawienia: %d";

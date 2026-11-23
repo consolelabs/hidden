@@ -310,3 +310,10 @@ Zum Anzeigen der permanent ausgeblendeten Symbole:
 "icons with no name" = "Symbole ohne Namen";
 "Nothing to hide" = "Nichts zum Ausblenden";
 "Every icon is right of the arrow, so there is nothing to hide. Hold Command and drag the arrow to the right of the icons you want to hide." = "Alle Symbole liegen rechts vom Pfeil, daher gibt es nichts auszublenden. Halte die Befehlstaste gedrückt und ziehe den Pfeil rechts neben die Symbole, die du ausblenden möchtest.";
+"Restore settings from the App Store version" = "Einstellungen aus der App-Store-Version wiederherstellen";
+"Copies the settings the App Store version saved into this version. Your current settings are replaced." = "Kopiert die Einstellungen, die die App-Store-Version gespeichert hat, in diese Version. Deine aktuellen Einstellungen werden ersetzt.";
+"Restore…" = "Wiederherstellen…";
+"Restore your settings from the App Store version?" = "Einstellungen aus der App-Store-Version wiederherstellen?";
+"This replaces the settings you have now with the ones the App Store version saved." = "Dadurch werden deine aktuellen Einstellungen durch die ersetzt, die die App-Store-Version gespeichert hat.";
+"Restore" = "Wiederherstellen";
+"Settings restored: %d" = "Einstellungen wiederhergestellt: %d";

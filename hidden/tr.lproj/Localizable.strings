@@ -311,3 +311,10 @@ Her zaman gizli simgeleri görüntüleme adımları:
 "icons with no name" = "adsız simgeler";
 "Nothing to hide" = "Gizlenecek bir şey yok";
 "Every icon is right of the arrow, so there is nothing to hide. Hold Command and drag the arrow to the right of the icons you want to hide." = "Tüm simgeler okun sağında olduğundan gizlenecek bir şey yok. Command tuşunu basılı tutup oku, gizlemek istediğiniz simgelerin sağına sürükleyin.";
+"Restore settings from the App Store version" = "Ayarları App Store sürümünden geri yükle";
+"Copies the settings the App Store version saved into this version. Your current settings are replaced." = "App Store sürümünün kaydettiği ayarları bu sürüme kopyalar. Mevcut ayarlarınızın yerine geçer.";
+"Restore…" = "Geri Yükle…";
+"Restore your settings from the App Store version?" = "Ayarlarınız App Store sürümünden geri yüklensin mi?";
+"This replaces the settings you have now with the ones the App Store version saved." = "Bu işlem, mevcut ayarlarınızın yerine App Store sürümünün kaydettiği ayarları koyar.";
+"Restore" = "Geri Yükle";
+"Settings restored: %d" = "Geri yüklenen ayarlar: %d";
