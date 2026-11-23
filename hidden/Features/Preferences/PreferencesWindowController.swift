@@ -175,7 +175,7 @@ class PreferencesWindowController: NSWindowController {
         // Hidden in the titlebar, but still the window's name in the Window menu and to VoiceOver.
         window.title = tab.titleKey.localized
 
-        let fitting = controller.view.fittingSize
+        let fitting = settledFittingSize(of: controller)
         let scrolls = fitting.height > Self.maxWindowHeight - Self.tabBarHeight
         let size = NSSize(width: fitting.width, height: scrolls ? Self.maxWindowHeight - Self.tabBarHeight : fitting.height)
         old.view.removeFromSuperview()
@@ -199,6 +199,29 @@ class PreferencesWindowController: NSWindowController {
         newFrame.size = frame.size
         window.setFrame(newFrame, display: true, animate: animate && window.isVisible)
         (controller as? SettingsPaneController)?.refreshAll()
+    }
+
+    /// The pane's size once its text is in place and wrapped at the window's
+    /// width, measured with the pane laid out inside the window. A fit taken
+    /// outside it counts every wrapped caption as one line and misses the
+    /// captions `refreshAll` fills in, so a long locale got a window shorter than
+    /// its pane and the last rows were cut off instead of scrolled.
+    private func settledFittingSize(of controller: NSViewController) -> NSSize {
+        (controller as? SettingsPaneController)?.refreshAll()
+        let view = controller.view
+        view.removeFromSuperview()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        paneHost.addSubview(view)
+        NSLayoutConstraint.activate([
+            view.topAnchor.constraint(equalTo: paneHost.topAnchor),
+            view.leadingAnchor.constraint(equalTo: paneHost.leadingAnchor),
+            view.trailingAnchor.constraint(equalTo: paneHost.trailingAnchor),
+        ])
+        window?.layoutIfNeeded()
+        window?.layoutIfNeeded()
+        let size = view.fittingSize
+        view.removeFromSuperview()
+        return size
     }
 
     /// Puts `pane` in a vertical scroll view the width of the window, pinned to
