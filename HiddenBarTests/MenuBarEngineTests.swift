@@ -791,7 +791,8 @@ final class NothingToHideTests: XCTestCase {
 // x 0 (logged as "arrow at x=16.0"), so every icon read as right of it.
 final class UnplacedArrowTests: XCTestCase {
     private let own = "com.dwarvesv.minimalbar"
-    private let unplaced = CGRect(x: 0, y: 976, width: 32, height: 24)
+    // midX 16 as logged; the width is the one the other fixtures give the arrow.
+    private let unplaced = CGRect(x: 6, y: 976, width: 20, height: 24)
     private var arrowFrame: CGRect!
     private var items: FakeItems!
     private var inventory: FakeInventory!
@@ -917,6 +918,11 @@ final class UnplacedArrowTests: XCTestCase {
         let displays = MenuBarDisplay.displays(screenFrames: [CGRect(x: 0, y: 0, width: 2000, height: 1000),
                                                               CGRect(x: -1600, y: 0, width: 1600, height: 900)])
         XCTAssertFalse(NativeVisibilityEngine.isPlaced(arrow: unplaced, displays: displays))
+        // The arrow's width follows its image; the log only proves midX 16.
+        for width: CGFloat in [20, 24, 32] {
+            XCTAssertFalse(NativeVisibilityEngine.isPlaced(arrow: CGRect(x: 16 - width / 2, y: 976, width: width, height: 24),
+                                                           displays: displays), "midX 16 at width \(width)")
+        }
         XCTAssertTrue(NativeVisibilityEngine.isPlaced(arrow: separator, displays: displays))
         // Right to left, status items start at the left, after macOS's own items.
         XCTAssertTrue(NativeVisibilityEngine.isPlaced(arrow: CGRect(x: 180, y: 976, width: 32, height: 24), displays: displays))

@@ -602,14 +602,20 @@ final class NativeVisibilityEngine: MenuBarEngine {
     }
 
     // macOS reports a status item it has not put in the bar yet at the left edge
-    // of the display: (0, 0) on macOS 26 (#336), x 0 at launch on a crowded 27.2
-    // bar (#584). No status item sits there in either direction: the Apple menu
-    // holds it left to right, macOS's own items right to left.
+    // of the display: (0, 0) on macOS 26 (#336), midX 16 at launch on a crowded
+    // 27.2 bar (#584). No status item sits within its own width of that edge in
+    // either direction: the Apple menu holds it left to right, macOS's own items
+    // right to left. An arrow on no display is left to the caller.
     static func isPlaced(arrow frame: CGRect, displays: [MenuBarDisplay]) -> Bool {
-        guard let display = MenuBarDisplay.containing(appKitFrame: frame, in: displays) else {
-            return frame.minX != 0
+        let leftEdge: CGFloat
+        if let display = MenuBarDisplay.containing(appKitFrame: frame, in: displays) {
+            leftEdge = display.appKitFrame.minX
+        } else if displays.isEmpty {
+            leftEdge = 0
+        } else {
+            return true
         }
-        return frame.minX > display.appKitFrame.minX
+        return frame.minX >= leftEdge + max(frame.width, 1)
     }
 
     var isAlwaysHiddenSeparatorPlaced: Bool {
