@@ -70,6 +70,7 @@ Coming from the App Store version? Quit it and move `/Applications/Hidden Bar.ap
 
 - [Manual](docs/MANUAL.md): every setting, the hidden Terminal-only options, and troubleshooting.
 - [Architecture](docs/ARCHITECTURE.md): how the hiding trick works, topology, and known limits.
+- [macOS 27 known limits](docs/macos27-known-limits.md): why some menu bar items stay hidden, and the pause switch.
 - [Maintainer runbook](docs/RUNBOOK.md): build, behavioral verification, and release process.
 
 ## ✨<a href="https://github.com/consolelabs/hidden/graphs/contributors">Contributors</a>

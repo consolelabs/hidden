@@ -51,6 +51,7 @@ section is enabled.
   some helpers) cannot be kept visible on macOS 27. Preferences offers to show
   all icons while one of them sits right of the arrow.
 - macOS's own items (clock, Wi-Fi, Sound, Control Center) always stay visible.
+- Some items stay hidden whatever you set, because macOS 27 hides them whenever any app hides icons: Focus, Now Playing, Camera controls, Live Activities, and any app that runs from outside `/Applications` (`~/Applications` does not count; iStat Menus runs its menu bar part from Application Support). Settings > Advanced has a pause switch for them. [macOS 27 known limits](macos27-known-limits.md) has the list, what was measured and the trade-off.
 - **When a click hides nothing,** a small note under the arrow says why, once per reason per launch, and only for a click or the hotkey, never for auto-hide. The reasons: Hidden Bar runs outside Applications (button: Move to Applications); an icon right of the arrow that macOS would hide anyway, with the pause switch on (the note names the apps; button: Settings › Advanced); Accessibility is off (button: Settings); or every icon sits right of the arrow, so nothing is left to hide (⌘-drag the arrow right of the icons you want hidden). If the arrow's position cannot be read yet, nothing shows.
 - Run Hidden Bar from `/Applications`; macOS only recognizes that copy as
   Hidden Bar, and a copy elsewhere hides its own arrow.
@@ -191,6 +192,7 @@ To undo any of them: `defaults delete com.dwarvesv.minimalbar <key>`.
 | Nothing hides on a macOS 27 beta | Known (issue #360); the menu bar re-architecture broke the hiding mechanism, fix under investigation |
 | A new or just-updated app's icon shows up already hidden | macOS 26 and earlier, or the App Store build: expected, see "Why new icons start hidden" below; ⌘-drag it to the right of the separator once. macOS 27 direct build: new and relaunched apps start visible (Pinned sections, beta) |
 | An app jumps into the hidden section by itself (BitBar, SwiftBar) | macOS 27 direct build: in Settings > Icons, tick "Ignore drags" on that app; it then keeps the section you picked |
+| An app set to Visible (iStat Menus, or an app run from `~/Applications` or Downloads) still disappears when the bar collapses (macOS 27 direct build) | macOS hides apps that run from outside `/Applications`, whatever Hidden Bar allows. Move the app into `/Applications` and relaunch it. iStat Menus keeps its menu bar part in Application Support, so for it only Settings > Advanced > "Pause hiding while macOS shows Now Playing, Focus and similar items" helps, and then nothing hides while iStat runs. See [macOS 27 known limits](macos27-known-limits.md) |
 | Date disappears from the clock when collapsed (macOS 26 and earlier) | The collapsed bar takes the space macOS measures; set System Settings > Control Center > Clock > Show date to Always. macOS 27 with the direct build is not affected |
 
 ### Why new icons start hidden
