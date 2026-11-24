@@ -123,8 +123,8 @@ the real `/Applications`). Never judge arrow or hiding behaviour on a copy outsi
    builds the **Hidden Bar Direct** target), checks the app, notarizes,
    staples, zips, EdDSA-signs, builds `appcast.xml`, smoke-tests the zip with
    a host restore, and writes `build/release-<version>/checks.md` with one row
-   per check. It never tags, uploads or publishes; `checks.md` ends with the
-   publish commands as text. `scripts/release.sh --check-app <app>` runs the
+   per check. It never tags, uploads or publishes; `scripts/publish-release.sh`
+   does that (see **Publish** below). `scripts/release.sh --check-app <app>` runs the
    app checks alone on any bundle; `bash scripts/test-release.sh` tests the
    script offline. The steps below are what the script does, for a manual
    run or when the script is broken on release day.
@@ -156,6 +156,27 @@ the real `/Applications`). Never judge arrow or hiding behaviour on a copy outsi
      CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Developer ID Application' \
      DEVELOPMENT_TEAM=W777S7V8TN OTHER_CODE_SIGN_FLAGS=--timestamp
    ```
+
+   **Publish** with `scripts/publish-release.sh`, from the hidden checkout, once `checks.md` passed and the upgrade-path check (step 7) is done. Dry run first: it is the default, runs the read-only preflight, prints the release body and every command and check, and changes nothing. Then the same command with `--apply`:
+
+   ```sh
+   scripts/publish-release.sh --title 'app language, App Store settings restore'           # dry run
+   scripts/publish-release.sh --title 'app language, App Store settings restore' --apply   # publish
+   ```
+
+   `--dir` defaults to `build/release-<project version>`. The preflight refuses (exit 2) unless `checks.md` passed, its version agrees with the project file, the zips and the appcast, `SHA256SUMS` verifies, the `## v<version> (<date>)` CHANGELOG section is non-empty, no `v<version>` tag or release exists, the recorded HEAD is in `develop`, and the latest published release is the one the appcast was built against (else rerun `release.sh`). `--apply` then writes the body to `publish-notes.md`, tags and pushes `v<version>`, creates a draft release titled `v<version>: <title>`, uploads both zips and `appcast.xml`, publishes it as latest, and checks the live feed and zip against `SHA256SUMS`. Last, the master leg: branch `release/v<version>` at the tag, PR "Release v<version> to master", wait for its checks, turn `allow_merge_commit` on, merge with a merge commit, turn it off again (an EXIT trap restores it on every path and the run prints the value read back), confirm `origin/master` contains the tag, delete the branch. `--skip-master` stops after the live checks. A failed step stops the run and prints what was done and the commands left, so a human can finish by hand. `bash scripts/test-publish-release.sh` tests the script offline.
+
+   Manual fallback, from the release dir (`<sha>` is the HEAD in `checks.md`; the body is the CHANGELOG section without its heading):
+
+   ```sh
+   git tag v<version> <sha> && git push origin refs/tags/v<version>:refs/tags/v<version>
+   gh release create v<version> -R consolelabs/hidden --draft --verify-tag --title 'v<version>: <title>' --notes-file publish-notes.md
+   gh release upload v<version> -R consolelabs/hidden Hidden-Bar-v<version>-macos.zip Hidden-Bar-macos.zip appcast.xml
+   gh release edit v<version> -R consolelabs/hidden --draft=false --latest
+   curl -sL https://github.com/consolelabs/hidden/releases/latest/download/appcast.xml | grep -m1 shortVersionString
+   ```
+
+   Then the master PR as above; the repo allows squash and rebase only, so wrap the merge in `gh api -X PATCH repos/consolelabs/hidden -F allow_merge_commit=true` and `... =false`, and read the setting back after.
 4. App Store (separate lane, **Hidden Bar App Store** scheme): the MAS listing
    has lagged GitHub since v1.8 (issues #281/#202); decide deliberately whether
    a release goes there too. If it does, follow "App Store release" below,
@@ -184,8 +205,7 @@ from the pinned Sparkle tarball (sha256 checked every run), verifies every
 enclosure against `SUPublicEDKey` (pinned in the script), and builds the
 appcast by prepending the new item to the latest published `appcast.xml`, so
 every prior item stays byte-identical (it does not use `generate_appcast`,
-which rewrites prior items). Steps 4 and 5, the upload and publish, stay
-manual; `checks.md` prints them. The manual commands, for reference:
+which rewrites prior items). Steps 4 and 5, the upload and publish, are `scripts/publish-release.sh` (see "Release" above). The manual commands, for reference:
 
 Sparkle's `sign_update` and `generate_appcast` come from the Sparkle release
 tarball matching the pinned package version (2.10.1, `Sparkle-<ver>.tar.xz`

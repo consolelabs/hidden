@@ -310,3 +310,19 @@
 "icons with no name" = "піктограми без назви";
 "Nothing to hide" = "Нічого приховувати";
 "Every icon is right of the arrow, so there is nothing to hide. Hold Command and drag the arrow to the right of the icons you want to hide." = "Усі піктограми розташовані праворуч від стрілки, тому приховувати нічого. Утримуючи Command, перетягніть стрілку праворуч від піктограм, які потрібно приховати.";
+
+/* Language */
+"Language" = "Мова";
+"App language" = "Мова застосунку";
+"System (follow macOS)" = "Система (як у macOS)";
+"Takes effect after Hidden Bar restarts." = "Діє після перезапуску Hidden Bar.";
+"Restart Hidden Bar to apply the new language." = "Перезапустіть Hidden Bar, щоб застосувати нову мову.";
+"Restart Now" = "Перезапустити зараз";
+"Later" = "Пізніше";
+"Restore settings from the App Store version" = "Відновити налаштування з версії з App Store";
+"Copies the settings the App Store version saved into this version. Your current settings are replaced." = "Копіює в цю версію налаштування, збережені версією з App Store. Ваші поточні налаштування буде замінено.";
+"Restore…" = "Відновити…";
+"Restore your settings from the App Store version?" = "Відновити налаштування з версії з App Store?";
+"This replaces the settings you have now with the ones the App Store version saved." = "Це замінить ваші поточні налаштування тими, що зберегла версія з App Store.";
+"Restore" = "Відновити";
+"Settings restored: %d" = "Відновлено налаштувань: %d";

@@ -1,0 +1,12 @@
+2026-11-23 06:49:11.177 Hidden Bar[1001:7298] AppStoreMigration: other running copy decision launch
+2026-11-23 06:49:11.178 Hidden Bar[1001:7298] LegacyLoginItem: none
+2026-11-23 06:49:11.202 Hidden Bar[1001:7298] AutoStart: unregister failed: The operation couldn’t be completed. Operation not permitted
+2026-11-23 06:49:11.218 Hidden Bar[1001:7298] AutoStart: status = 3
+2026-11-23 06:49:11.225 Hidden Bar[1001:259] AppStoreMigration: no backup written: one already exists
+2026-11-23 06:49:11.225 Hidden Bar[1001:259] AppStoreMigration: import offer skipped: already answered
+2026-11-23 06:49:12.333 Hidden Bar[1001:7447] NativeVisibility: re-read 4 apps that timed out, 4 still missing
+2026-11-23 06:49:12.333 Hidden Bar[1001:7447] NativeVisibility: inventory of 30 apps took 121 ms
+2026-11-23 06:49:12.333 Hidden Bar[1001:7359] NativeVisibility: re-read 4 apps that timed out, 4 still missing
+2026-11-23 06:49:12.333 Hidden Bar[1001:7359] NativeVisibility: inventory of 30 apps took 122 ms
+2026-11-23 06:49:12.333 Hidden Bar[1001:7298] NativeVisibility: the active menu bar overflows; apps it does not list keep their last known section
+2026-11-23 06:49:12.335 Hidden Bar[1001:7298] NativeVisibility: arrow at x=632.0; visible ["com.apple.AccessibilityUIServer", "com.apple.AirPlayUIAgent", "com.apple.AppSSOAgent", "com.apple.CampoRemoteService", "com.apple.CoreLocationAgent", "com.apple.IOUIAgent", "com.apple.SoftwareUpdateNotificationManager", "com.apple.Terminal", "com.apple.TextInputMenuAgent", "com.apple.TextInputSwitcher", "com.apple.TextInputUI.xpc.CursorUIViewService", "com.apple.UIKitSystemApp", "com.apple.ViewBridgeAuxiliary", "com.apple.WebKit.GPU", "com.apple.WindowManager", "com.apple.backgroundtaskmanagement.agent", "com.apple.campo", "com.apple.chronod", "com.apple.coreservices.uiagent", "com.apple.dock", "com.apple.dock.extra", "com.apple.finder", "com.apple.loginwindow", "com.apple.notificationcenterui", "com.apple.quicklook.QuickLookUIService", "com.apple.sharingd", "com.apple.systemuiserver", "com.apple.talagent", "com.apple.wallpaper.agent", "com.apple.weather.widget", "com.apple.wifi.WiFiAgent", "com.bjango.istatmenus.agent", "com.synology.SynologyDrive.FinderHelper.FinderSync"], hidden [], always hidden ["com.bjango.istatmenus.status"]

@@ -222,6 +222,218 @@ final class AppStoreMigrationTests: XCTestCase {
         XCTAssertFalse(later.isAnswered(MigrationOfferLedger.moveKey))
     }
 
+    // MARK: why the offer shows or not
+
+    private typealias Reason = AppStoreSettingsImport.OfferReason
+
+    private func reason(_ container: AppStoreSettingsImport.ContainerState, direct: [String: Any] = [:],
+                        answered: Bool = false) -> Reason {
+        AppStoreSettingsImport.offerReason(container: container, directValues: direct,
+                                           registeredDefaults: registered, alreadyAnswered: answered)
+    }
+
+    func testReasonAnsweredWinsOverEverything() {
+        XCTAssertEqual(reason(.values(["isAutoHide": false]), answered: true), .answered)
+        XCTAssertEqual(reason(.missing, answered: true), .answered)
+    }
+
+    func testReasonNoContainer() {
+        XCTAssertEqual(reason(.missing), .noContainer)
+    }
+
+    func testReasonUnreadableContainer() {
+        XCTAssertEqual(reason(.unreadable), .unreadableContainer)
+    }
+
+    func testReasonContainerDefault() {
+        XCTAssertEqual(reason(.values(["isAutoHide": true, "SUEnableAutomaticChecks": false])), .containerDefault)
+        XCTAssertEqual(reason(.values([:])), .containerDefault)
+    }
+
+    func testReasonDirectCustomizedNamesTheKeys() {
+        let direct: [String: Any] = ["hoverToExpand": true, "arrowStyle": "chevron", "areSeparatorsHidden": true]
+        XCTAssertEqual(reason(.values(["isAutoHide": false]), direct: direct), .directCustomized(["arrowStyle", "hoverToExpand"]),
+                       "keys written at launch do not count; the others are listed sorted")
+    }
+
+    func testReasonOffer() {
+        XCTAssertEqual(reason(.values(["isAutoHide": false])), .offer)
+    }
+
+    func testShouldOfferIsTheOfferReason() {
+        let containers: [[String: Any]?] = [nil, [:], ["isAutoHide": true], ["isAutoHide": false]]
+        let directs: [[String: Any]] = [[:], ["hoverToExpand": true]]
+        for container in containers {
+            for direct in directs {
+                for answered in [false, true] {
+                    let expected = reason(container.map { .values($0) } ?? .missing, direct: direct, answered: answered) == .offer
+                    XCTAssertEqual(AppStoreSettingsImport.shouldOffer(containerValues: container, directValues: direct,
+                                                                      registeredDefaults: registered, alreadyAnswered: answered),
+                                   expected)
+                }
+            }
+        }
+    }
+
+    func testReadContainerTellsAbsenceFromAnUnreadableFile() throws {
+        let url = AppStoreSettingsImport.containerPreferencesURL(home: root, bundleIdentifier: bundleID)
+        guard case .missing = AppStoreSettingsImport.readContainer(at: url) else { return XCTFail("a container that never existed") }
+
+        _ = try writeContainerPlist(["isAutoHide": false])
+        guard case .values(let values) = AppStoreSettingsImport.readContainer(at: url) else { return XCTFail("a readable plist") }
+        XCTAssertEqual(values["isAutoHide"] as? Bool, false)
+
+        try Data("not a plist".utf8).write(to: url)
+        guard case .unreadable = AppStoreSettingsImport.readContainer(at: url) else { return XCTFail("a damaged plist") }
+    }
+
+    func testReadContainerCallsAFileTheUserMayNotReadUnreadable() throws {
+        try XCTSkipIf(getuid() == 0, "root reads any file")
+        let url = try writeContainerPlist(["isAutoHide": false])
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: url.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path) }
+        guard case .unreadable = AppStoreSettingsImport.readContainer(at: url) else { return XCTFail("present but refused") }
+    }
+
+    // MARK: backup
+
+    private var backupURL: URL { AppStoreSettingsBackup.url(home: root) }
+
+    func testBackupPathIsInApplicationSupport() {
+        XCTAssertEqual(AppStoreSettingsBackup.url(home: URL(fileURLWithPath: "/Users/x")).path,
+                       "/Users/x/Library/Application Support/Hidden Bar/AppStoreSettingsBackup.plist")
+    }
+
+    // Given a readable container with customized settings, an unknown key and a Sparkle key
+    // When the backup runs
+    // Then the file holds the importable values only, readable by its owner alone
+    func test_backupHoldsOnlyTheImportableValuesAndIsPrivate() throws {
+        let container: [String: Any] = ["isAutoHide": false, "arrowStyle": "chevron", "globalKey": Data([1, 2]),
+                                        "SUEnableAutomaticChecks": true, "somethingUnknown": "x", "arrowStyle2": 3]
+        XCTAssertEqual(AppStoreSettingsBackup.backUp(container: .values(container), registeredDefaults: registered, to: backupURL), .written)
+
+        let stored = try XCTUnwrap(AppStoreSettingsImport.readContainer(at: backupURL).values)
+        XCTAssertEqual(Set(stored.keys), ["isAutoHide", "arrowStyle", "globalKey"])
+        XCTAssertEqual(stored["globalKey"] as? Data, Data([1, 2]))
+        let mode = try XCTUnwrap(FileManager.default.attributesOfItem(atPath: backupURL.path)[.posixPermissions] as? Int)
+        XCTAssertEqual(mode & 0o777, 0o600)
+    }
+
+    func test_backupNeverOverwritesAnExistingOne() throws {
+        AppStoreSettingsBackup.backUp(container: .values(["arrowStyle": "chevron"]), registeredDefaults: registered, to: backupURL)
+        let outcome = AppStoreSettingsBackup.backUp(container: .values(["arrowStyle": "other", "isAutoHide": false]),
+                                                    registeredDefaults: registered, to: backupURL)
+        XCTAssertEqual(outcome, .alreadyExists)
+        XCTAssertEqual(AppStoreSettingsImport.readContainer(at: backupURL).values?["arrowStyle"] as? String, "chevron")
+    }
+
+    func test_backupIsSkippedWhenThereIsNothingToKeep() {
+        func outcome(_ container: AppStoreSettingsImport.ContainerState) -> AppStoreSettingsBackup.Outcome {
+            AppStoreSettingsBackup.backUp(container: container, registeredDefaults: registered, to: backupURL)
+        }
+        XCTAssertEqual(outcome(.missing), .noContainer)
+        XCTAssertEqual(outcome(.unreadable), .unreadableContainer)
+        XCTAssertEqual(outcome(.values(["isAutoHide": true, "SUEnableAutomaticChecks": false, "somethingUnknown": 1])), .nothingCustomized)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: backupURL.path))
+    }
+
+    // Given the App Store container under a fake home
+    // When the launch backup step runs, twice
+    // Then the backup sits in the fake home's Application Support, and the second run leaves it alone
+    func test_launchBackupStepWritesUnderTheHome() throws {
+        _ = try writeContainerPlist(["isAutoHide": false])
+        let migration = AppStoreMigration(environment: .init(home: root, bundleURL: downloadsApp, bundleIdentifier: bundleID,
+                                                             defaults: defaults, registeredDefaults: registered))
+        migration.backUpAtLaunch()
+        XCTAssertEqual(migration.backupURL, backupURL)
+        XCTAssertEqual(AppStoreSettingsImport.readContainer(at: backupURL).values?["isAutoHide"] as? Bool, false)
+        _ = try writeContainerPlist(["isAutoHide": true, "arrowStyle": "chevron"])
+        migration.backUpAtLaunch()
+        XCTAssertEqual(AppStoreSettingsImport.readContainer(at: backupURL).values?["isAutoHide"] as? Bool, false)
+    }
+
+    // MARK: restore
+
+    private func migration() -> AppStoreMigration {
+        AppStoreMigration(environment: .init(home: root, bundleURL: downloadsApp, bundleIdentifier: bundleID,
+                                             defaults: defaults, registeredDefaults: registered))
+    }
+
+    // Given the container, readable
+    // When the user restores
+    // Then the same keys land in the defaults as Import writes, and the apply hook (login item, shortcuts) runs
+    func test_restoreReadsTheContainerAndWritesWhatImportWrites() throws {
+        let values: [String: Any] = ["isAutoHide": false, "isAutoStart": true, "arrowStyle": "chevron", "SUEnableAutomaticChecks": true]
+        _ = try writeContainerPlist(values)
+        let importDefaults = UserDefaults(suiteName: suiteName + ".import")!
+        defer { importDefaults.removePersistentDomain(forName: suiteName + ".import") }
+        let imported = AppStoreSettingsImport.apply(values, to: importDefaults)
+
+        let subject = migration()
+        var applied = 0
+        subject.applyImported = { applied += 1 }
+        XCTAssertEqual(subject.restoreSettings(), imported.count)
+        XCTAssertEqual(Set(defaults.persistentDomain(forName: suiteName).map { Array($0.keys) } ?? []), Set(imported))
+        XCTAssertEqual(defaults.string(forKey: "arrowStyle"), "chevron")
+        XCTAssertEqual(applied, 1)
+    }
+
+    // Given the container gone or unreadable and a backup on disk
+    // When the user restores
+    // Then the backup's values are applied
+    func test_restoreFallsBackToTheBackup() throws {
+        let url = try writeContainerPlist(["isAutoHide": false, "arrowStyle": "chevron"])
+        let subject = migration()
+        subject.backUpAtLaunch()
+        try FileManager.default.removeItem(at: url)
+
+        XCTAssertEqual(subject.restoreSettings(), 2)
+        XCTAssertEqual(defaults.string(forKey: "arrowStyle"), "chevron")
+
+        defaults.removePersistentDomain(forName: suiteName)
+        try Data("damaged".utf8).write(to: url)
+        XCTAssertEqual(subject.restoreSettings(), 2, "an unreadable container falls back too")
+    }
+
+    func test_restorePrefersTheContainerAndNeedsASource() throws {
+        _ = try writeContainerPlist(["arrowStyle": "chevron"])
+        let subject = migration()
+        subject.backUpAtLaunch()
+        _ = try writeContainerPlist(["arrowStyle": "other"])
+        subject.restoreSettings()
+        XCTAssertEqual(defaults.string(forKey: "arrowStyle"), "other")
+
+        let empty = AppStoreMigration(environment: .init(home: root.appendingPathComponent("nobody"), bundleURL: downloadsApp,
+                                                         bundleIdentifier: bundleID, defaults: defaults, registeredDefaults: registered))
+        XCTAssertNil(empty.restoreSettings())
+    }
+
+    // Given the import offer was answered "Not now" long ago and the user has settings of their own
+    // When the user restores
+    // Then it still works, and the once-only answer is untouched
+    func test_restoreIgnoresAndKeepsTheOnceOnlyAnswer() throws {
+        _ = try writeContainerPlist(["arrowStyle": "chevron"])
+        defaults.set(true, forKey: UserDefaults.Key.hoverToExpand)
+        let ledger = MigrationOfferLedger(defaults: defaults)
+        XCTAssertFalse(ledger.isAnswered(MigrationOfferLedger.importKey))
+        XCTAssertNotNil(migration().restoreSettings())
+        XCTAssertFalse(ledger.isAnswered(MigrationOfferLedger.importKey), "restoring does not answer the offer")
+
+        ledger.recordAnswer(MigrationOfferLedger.importKey)
+        defaults.set("other", forKey: "arrowStyle")
+        XCTAssertNotNil(migration().restoreSettings())
+        XCTAssertEqual(defaults.string(forKey: "arrowStyle"), "chevron")
+        XCTAssertTrue(ledger.isAnswered(MigrationOfferLedger.importKey))
+    }
+
+    func test_restoreSourceNeedsCustomizedSettings() {
+        let defaultsOnly: AppStoreSettingsImport.ContainerState = .values(["isAutoHide": true])
+        XCTAssertNil(AppStoreSettingsRestore.source(container: defaultsOnly, backup: .missing, registeredDefaults: registered))
+        let backed: AppStoreSettingsImport.ContainerState = .values(["isAutoHide": false])
+        let found = AppStoreSettingsRestore.source(container: .unreadable, backup: backed, registeredDefaults: registered)
+        XCTAssertEqual(found?.source, .backup)
+    }
+
     // MARK: second copy detection
 
     func testFindsTheAppStoreCopyButNeverTheRunningOne() throws {
@@ -427,6 +639,13 @@ final class AppStoreMigrationTests: XCTestCase {
             "macOS 27: get the working version...",
             "Or install it with Homebrew:",
             "Quit this App Store version and move it to the Trash first. Homebrew does not install over it.",
+            "Restore settings from the App Store version",
+            "Copies the settings the App Store version saved into this version. Your current settings are replaced.",
+            "Restore…",
+            "Restore your settings from the App Store version?",
+            "This replaces the settings you have now with the ones the App Store version saved.",
+            "Restore",
+            "Settings restored: %d",
         ]
         let localizations = Bundle.main.localizations.filter { $0 != "Base" }
         XCTAssertGreaterThan(localizations.count, 5)

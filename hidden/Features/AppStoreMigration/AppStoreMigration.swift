@@ -16,8 +16,12 @@ import AppKit
 //      not writable or holds the App Store copy the user kept.
 // Before those, an App Store copy that is already running is offered a quit
 // instead of this build quitting silently.
-// Nothing happens without the user's click. The App Store build compiles none of
-// this: App Review 2.4.5(iv) forbids it from fetching or installing other apps.
+// A readable container is also copied once to a backup of the importable values
+// in Application Support (a private file write, no other change), and Settings >
+// Advanced restores from the container or that backup at any time, whatever the
+// once-only answer says.
+// Nothing else happens without the user's click. The App Store build compiles none
+// of this: App Review 2.4.5(iv) forbids it from fetching or installing other apps.
 #if HIDDENBAR_NATIVE_VISIBILITY
 
 /// Records that the user answered an offer, so each one is shown at most once.
@@ -80,6 +84,40 @@ enum AppStoreSettingsImport {
         return (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any]
     }
 
+    /// How the container plist read: absent (no App Store install ever ran),
+    /// present but unreadable (macOS's "access data from other apps" prompt was
+    /// refused or not yet answered, a damaged file), or its values.
+    enum ContainerState {
+        case missing
+        case unreadable
+        case values([String: Any])
+
+        var values: [String: Any]? {
+            if case .values(let values) = self { return values }
+            return nil
+        }
+    }
+
+    static func readContainer(at url: URL) -> ContainerState {
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch {
+            return isNoSuchFile(error) ? .missing : .unreadable
+        }
+        guard let values = (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any] else {
+            return .unreadable
+        }
+        return .values(values)
+    }
+
+    private static func isNoSuchFile(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        if nsError.domain == NSCocoaErrorDomain, nsError.code == NSFileReadNoSuchFileError { return true }
+        let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? NSError
+        return underlying?.domain == NSPOSIXErrorDomain && underlying?.code == Int(ENOENT)
+    }
+
     /// Whitelisted keys whose value has the expected type; everything else dropped.
     static func importable(from values: [String: Any]) -> [String: Any] {
         values.filter { key, value in
@@ -107,16 +145,42 @@ enum AppStoreSettingsImport {
             .sorted()
     }
 
+    /// Why the import is, or is not, offered. The first reason that applies wins.
+    enum OfferReason: Equatable {
+        case answered
+        case noContainer
+        case unreadableContainer
+        case containerDefault
+        /// This build already holds settings of its own: their keys.
+        case directCustomized([String])
+        case offer
+    }
+
     /// Offer only when the App Store build has customized settings, this build
     /// still has none of its own, and the user has not answered before.
+    static func offerReason(container: ContainerState,
+                            directValues: [String: Any],
+                            registeredDefaults: [String: Any],
+                            alreadyAnswered: Bool) -> OfferReason {
+        guard !alreadyAnswered else { return .answered }
+        let containerValues: [String: Any]
+        switch container {
+        case .missing: return .noContainer
+        case .unreadable: return .unreadableContainer
+        case .values(let values): containerValues = values
+        }
+        guard !customizedKeys(in: containerValues, registeredDefaults: registeredDefaults).isEmpty else { return .containerDefault }
+        let chosenByUser = directValues.filter { !keysWrittenAtLaunch.contains($0.key) }
+        let ownKeys = customizedKeys(in: chosenByUser, registeredDefaults: registeredDefaults)
+        return ownKeys.isEmpty ? .offer : .directCustomized(ownKeys)
+    }
+
     static func shouldOffer(containerValues: [String: Any]?,
                             directValues: [String: Any],
                             registeredDefaults: [String: Any],
                             alreadyAnswered: Bool) -> Bool {
-        guard !alreadyAnswered, let containerValues else { return false }
-        guard !customizedKeys(in: containerValues, registeredDefaults: registeredDefaults).isEmpty else { return false }
-        let chosenByUser = directValues.filter { !keysWrittenAtLaunch.contains($0.key) }
-        return customizedKeys(in: chosenByUser, registeredDefaults: registeredDefaults).isEmpty
+        offerReason(container: containerValues.map { .values($0) } ?? .missing, directValues: directValues,
+                    registeredDefaults: registeredDefaults, alreadyAnswered: alreadyAnswered) == .offer
     }
 
     /// The App Store build had "Open at login" on.
@@ -140,6 +204,86 @@ enum AppStoreSettingsImport {
         let values = importable(from: containerValues)
         for (key, value) in values { defaults.set(value, forKey: key) }
         return values.keys.sorted()
+    }
+}
+
+/// A copy of the App Store build's importable settings in this app's own
+/// Application Support folder. The container can become unreadable (macOS asks
+/// before one app reads another's data) or disappear with the App Store copy;
+/// this file keeps the settings reachable. Written once, never overwritten.
+enum AppStoreSettingsBackup {
+    static let fileName = "AppStoreSettingsBackup.plist"
+
+    enum Outcome: Equatable {
+        case written
+        case alreadyExists
+        case noContainer
+        case unreadableContainer
+        case nothingCustomized
+        case failed
+
+        /// A static line, so it can go to the public log: it names no value.
+        var logLine: StaticString {
+            switch self {
+            case .written: return "AppStoreMigration: backed up the App Store settings"
+            case .alreadyExists: return "AppStoreMigration: no backup written: one already exists"
+            case .noContainer: return "AppStoreMigration: no backup written: no App Store settings found"
+            case .unreadableContainer: return "AppStoreMigration: no backup written: the App Store settings could not be read"
+            case .nothingCustomized: return "AppStoreMigration: no backup written: the App Store settings are all defaults"
+            case .failed: return "AppStoreMigration: no backup written: the write failed"
+            }
+        }
+    }
+
+    static func url(home: URL) -> URL {
+        home.appendingPathComponent("Library/Application Support/\(Constant.appName)/\(fileName)")
+    }
+
+    @discardableResult
+    static func backUp(container: AppStoreSettingsImport.ContainerState,
+                       registeredDefaults: [String: Any],
+                       to url: URL,
+                       fileManager: FileManager = .default) -> Outcome {
+        guard !fileManager.fileExists(atPath: url.path) else { return .alreadyExists }
+        let values: [String: Any]
+        switch container {
+        case .missing: return .noContainer
+        case .unreadable: return .unreadableContainer
+        case .values(let read): values = read
+        }
+        guard !AppStoreSettingsImport.customizedKeys(in: values, registeredDefaults: registeredDefaults).isEmpty else {
+            return .nothingCustomized
+        }
+        do {
+            try fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true,
+                                            attributes: [.posixPermissions: 0o700])
+            let data = try PropertyListSerialization.data(fromPropertyList: AppStoreSettingsImport.importable(from: values),
+                                                          format: .xml, options: 0)
+            try data.write(to: url, options: .atomic)
+            try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+            return .written
+        } catch {
+            NSLog("AppStoreMigration: backup failed: \(error.localizedDescription)")
+            return .failed
+        }
+    }
+}
+
+/// Where a manual restore takes its settings from: the container while it is
+/// readable and customized, else the backup.
+enum AppStoreSettingsRestore {
+    enum Source: Equatable { case container, backup }
+
+    static func source(container: AppStoreSettingsImport.ContainerState,
+                       backup: AppStoreSettingsImport.ContainerState,
+                       registeredDefaults: [String: Any]) -> (source: Source, values: [String: Any])? {
+        for (source, state) in [(Source.container, container), (Source.backup, backup)] {
+            if let values = state.values,
+               !AppStoreSettingsImport.customizedKeys(in: values, registeredDefaults: registeredDefaults).isEmpty {
+                return (source, values)
+            }
+        }
+        return nil
     }
 }
 
@@ -331,8 +475,11 @@ final class AppStoreMigration {
 
     /// Called once from `applicationDidFinishLaunching`.
     func runAtLaunchIfNeeded(afterImport: @escaping () -> Void) {
+        // Kept for a manual restore, which applies settings the same way.
+        applyImported = afterImport
         guard Self.isEnabled else { return }
         DispatchQueue.main.async { [self] in
+            backUpAtLaunch()
             if offerImportIfNeeded() { afterImport() }
             // The move check waits for the Trash, so a copy just trashed from
             // /Applications frees that slot instead of pushing us elsewhere.
@@ -435,10 +582,12 @@ final class AppStoreMigration {
 
     // MARK: Import
 
-    private var containerValues: [String: Any]? {
-        AppStoreSettingsImport.readPlist(at: AppStoreSettingsImport.containerPreferencesURL(
+    private var containerState: AppStoreSettingsImport.ContainerState {
+        AppStoreSettingsImport.readContainer(at: AppStoreSettingsImport.containerPreferencesURL(
             home: environment.home, bundleIdentifier: environment.bundleIdentifier))
     }
+
+    private var containerValues: [String: Any]? { containerState.values }
 
     private var directValues: [String: Any] {
         environment.defaults.dictionaryRepresentation()
@@ -453,12 +602,16 @@ final class AppStoreMigration {
         launchDirectValues = directValues
     }
 
-    /// The import offer will show at this launch, unless this build is a test host.
-    var wouldOfferImport: Bool {
-        AppStoreSettingsImport.shouldOffer(containerValues: containerValues,
+    private func importOfferReason(for container: AppStoreSettingsImport.ContainerState) -> AppStoreSettingsImport.OfferReason {
+        AppStoreSettingsImport.offerReason(container: container,
                                            directValues: launchDirectValues ?? directValues,
                                            registeredDefaults: environment.registeredDefaults,
                                            alreadyAnswered: ledger.isAnswered(MigrationOfferLedger.importKey))
+    }
+
+    /// The import offer will show at this launch, unless this build is a test host.
+    var wouldOfferImport: Bool {
+        importOfferReason(for: containerState) == .offer
     }
 
     /// `setupAutoStartApp` asks this before applying "Open at login".
@@ -472,7 +625,10 @@ final class AppStoreMigration {
     /// Returns true when settings were written, imported or kept on "Not now".
     @discardableResult
     func offerImportIfNeeded() -> Bool {
-        guard wouldOfferImport, let container = containerValues else { return false }
+        let state = containerState
+        let reason = importOfferReason(for: state)
+        Self.log(reason)
+        guard reason == .offer, let container = state.values else { return false }
 
         let alert = NSAlert()
         alert.alertStyle = .informational
@@ -491,6 +647,87 @@ final class AppStoreMigration {
             return !AppStoreSettingsImport.applyDecline(container, to: environment.defaults).isEmpty
         default:
             return false
+        }
+    }
+
+    /// One line per launch saying why the import was or was not offered. The
+    /// public line is static text; setting names stay in the private line.
+    static func log(_ reason: AppStoreSettingsImport.OfferReason) {
+        switch reason {
+        case .answered:
+            AppLog.publicLine("AppStoreMigration: import offer skipped: already answered")
+        case .noContainer:
+            AppLog.publicLine("AppStoreMigration: import offer skipped: no App Store settings found")
+        case .unreadableContainer:
+            AppLog.publicLine("AppStoreMigration: import offer skipped: the App Store settings could not be read")
+        case .containerDefault:
+            AppLog.publicLine("AppStoreMigration: import offer skipped: the App Store settings are all defaults")
+        case .directCustomized(let keys):
+            AppLog.publicLine("AppStoreMigration: import offer skipped: this build already has its own settings")
+            NSLog("AppStoreMigration: this build's own settings: \(keys.joined(separator: ", "))")
+        case .offer:
+            AppLog.publicLine("AppStoreMigration: offering the settings import")
+        }
+    }
+
+    // MARK: Backup and restore
+
+    /// Applies imported settings (login item, shortcuts, notices); set at launch.
+    var applyImported: (() -> Void)?
+
+    var backupURL: URL { AppStoreSettingsBackup.url(home: environment.home) }
+
+    /// Keeps the importable settings once, so a later unreadable or missing
+    /// container does not cost them.
+    func backUpAtLaunch() {
+        let outcome = AppStoreSettingsBackup.backUp(container: containerState,
+                                                    registeredDefaults: environment.registeredDefaults,
+                                                    to: backupURL, fileManager: environment.fileManager)
+        AppLog.publicLine(outcome.logLine)
+    }
+
+    private var restoreSource: (source: AppStoreSettingsRestore.Source, values: [String: Any])? {
+        AppStoreSettingsRestore.source(container: containerState,
+                                       backup: AppStoreSettingsImport.readContainer(at: backupURL),
+                                       registeredDefaults: environment.registeredDefaults)
+    }
+
+    /// Settings > Advanced shows its restore row only when this is true.
+    var canRestore: Bool {
+        AppDefaults.allowsHostSideEffects && restoreSource != nil
+    }
+
+    /// Copies the App Store settings over this build's, the way the Import
+    /// button does, and leaves the once-only import answer alone. Returns how
+    /// many settings were written, or nil when no source is readable.
+    @discardableResult
+    func restoreSettings() -> Int? {
+        guard let restore = restoreSource else { return nil }
+        let written = AppStoreSettingsImport.apply(restore.values, to: environment.defaults)
+        switch restore.source {
+        case .container: AppLog.publicLine("AppStoreMigration: restored settings from the App Store container")
+        case .backup: AppLog.publicLine("AppStoreMigration: restored settings from the backup")
+        }
+        applyImported?()
+        return written.count
+    }
+
+    /// The Advanced row's button: ask first, since this replaces current settings.
+    func offerRestore(in window: NSWindow?, done: @escaping (Int) -> Void) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Restore your settings from the App Store version?".localized
+        alert.informativeText = "This replaces the settings you have now with the ones the App Store version saved.".localized
+        alert.addButton(withTitle: "Restore".localized)
+        alert.addButton(withTitle: "Cancel".localized)
+        let finish: (NSApplication.ModalResponse) -> Void = { [self] response in
+            guard response == .alertFirstButtonReturn, let count = restoreSettings() else { return }
+            done(count)
+        }
+        if let window {
+            alert.beginSheetModal(for: window, completionHandler: finish)
+        } else {
+            finish(run(alert, id: "restore"))
         }
     }
 
@@ -645,22 +882,21 @@ final class AppStoreMigration {
     }
 
     /// Opens the new copy once this process has exited, so the new instance does
-    /// not see this one and quit as a duplicate.
+    /// not see this one and quit as a duplicate. The wait lives in AppRelaunch,
+    /// which the language row uses too, so the app has one such script.
     private func relaunch(at url: URL) {
-        let waiter = Process()
-        waiter.executableURL = URL(fileURLWithPath: "/bin/sh")
-        waiter.arguments = ["-c", "while /bin/kill -0 \"$1\" 2>/dev/null; do /bin/sleep 0.2; done; /usr/bin/open \"$2\"",
-                            "sh", String(ProcessInfo.processInfo.processIdentifier), url.path]
-        do {
-            try waiter.run()
-            NSApp.terminate(nil)
-        } catch {
-            NSLog("AppStoreMigration: relaunch failed: \(error.localizedDescription)")
-        }
+        AppRelaunch.now(at: url)
     }
+
+    /// Modal migration alerts on screen now. The macOS Accessibility prompt
+    /// would cover one, and Hidden Bar has no Dock icon to bring it back.
+    private(set) static var alertsOnScreen = 0
+    static var isAlertOnScreen: Bool { alertsOnScreen > 0 }
 
     @discardableResult
     private func run(_ alert: NSAlert, id: String) -> NSApplication.ModalResponse {
+        Self.alertsOnScreen += 1
+        defer { Self.alertsOnScreen -= 1 }
         NSApp.activate(ignoringOtherApps: true)
         #if DEBUG
         Self.scheduleDebugAnswer(for: id)
@@ -670,7 +906,7 @@ final class AppStoreMigration {
 
     #if DEBUG
     /// Test hook: launch with `-debugAnswerAlerts "switch=first,move=second"`.
-    /// Each named alert (switch, import, trash, trashfailed, move, explain, error) gets that
+    /// Each named alert (switch, import, trash, trashfailed, move, explain, error, restore) gets that
     /// answer after 3 seconds, time for a screenshot; any alert not named is
     /// aborted, which records nothing and moves nothing.
     private static let debugAnswers: [String: String]? = AppDefaults.store.string(forKey: "debugAnswerAlerts").map {

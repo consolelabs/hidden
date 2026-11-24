@@ -537,7 +537,10 @@ final class SettingsWindowTests: XCTestCase {
         let keys = ["Hidden Bar is working", "Hide icons again", "Never", "After %d seconds", "Your menu bar",
                     "This App Store version can't hide icons on macOS 27", "Check for Updates…", "What's new",
                     "Right-click on the arrow", "Show menu", "Show always-hidden icons",
-                    "Option-click the arrow to see always-hidden icons.", "Option-right-click the arrow to open the menu."]
+                    "Option-click the arrow to see always-hidden icons.", "Option-right-click the arrow to open the menu.",
+                    "Language", "App language", "System (follow macOS)",
+                    "Takes effect after Hidden Bar restarts.", "Restart Hidden Bar to apply the new language.",
+                    "Restart Now", "Later"]
         let localizations = Bundle.main.localizations.filter { $0 != "Base" }
         XCTAssertGreaterThan(localizations.count, 5)
         for locale in localizations {
@@ -574,6 +577,43 @@ final class SettingsWindowTests: XCTestCase {
             scroll.hasVerticalScroller = true
             scroll.tile()
         }
+    }
+
+    /// Captions that wrap to several lines at the window's width, as in German.
+    private final class WrappedCaptionsPane: SettingsPaneController {
+        override func buildForm() {
+            let rows = (0..<6).map { index in
+                SettingsForm.row("Row \(index)", caption: String(repeating: "A long caption that wraps onto several lines. ", count: 10),
+                                 control: NSButton(title: "Go", target: nil, action: nil))
+            }
+            addSection(nil, rows: rows)
+        }
+    }
+
+    // Given panes whose captions wrap (the real ones, and one built to wrap to several lines per row)
+    // When the window opens each tab at its own size
+    // Then a pane that does not scroll is as tall as its laid-out content, so no row is cut off below the window
+    func test_everyTab_fitsItsContentOrScrolls() throws {
+        var context = fullContext()
+        context.menuBarAppsAvailable = true
+        MenuBarAppsPane.makeViewController = { WrappedCaptionsPane(context: context) }
+        let controller = PreferencesWindowController(context: context)
+        windows.append(controller)
+        var checked = 0
+        for tab in controller.tabs {
+            controller.select(tab, animate: false)
+            let window = try XCTUnwrap(controller.window)
+            window.layoutIfNeeded()
+            window.layoutIfNeeded()
+            guard let pane = controller.currentPane as? SettingsPaneController else { continue }
+            if pane.view.isDescendant(of: controller.paneScroll) { checked += 1; continue }
+            let visible = try XCTUnwrap(window.contentView).bounds.height - PreferencesWindowController.tabBarHeight
+            let needed = pane.form.fittingSize.height
+            XCTAssertGreaterThanOrEqual(visible + 0.5, needed,
+                                        "\(tab): the window shows \(visible) pt of pane but the content needs \(needed) pt, so the last rows are cut off")
+            checked += 1
+        }
+        XCTAssertGreaterThanOrEqual(checked, 4)
     }
 
     // Given a Mac set to always show scroll bars, and an Icons list long enough to scroll
