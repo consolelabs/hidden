@@ -14,7 +14,7 @@ The reporter's recording (opened, frames at 1.5 per second, 1.13.3): collapsed b
 
 ## Evidence on 1.13.4
 
-Folder `/Volumes/data-mini/lume/hb-shots/issue-verdicts-2721-2026-11-25/` (1.13.4 build 25, CDHash 27796c72..., macOS 27.2.1).
+Evidence folder `issue-verdicts-2721-2026-11-25` on the maintainer test host (1.13.4 build 25, CDHash 27796c72..., macOS 27.2.1).
 
 | Cell | Result | File |
 |---|---|---|

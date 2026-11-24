@@ -15,7 +15,7 @@ Verdict: **OS limit, documented.** The issue text was stale against 1.13.4 and i
 
 ## Claims re-checked on 1.13.4
 
-Folder `/Volumes/data-mini/lume/hb-shots/issue-verdicts-2721-2026-11-25/`, macOS 27.2.1, build 25.
+Evidence folder `issue-verdicts-2721-2026-11-25` on the maintainer test host, macOS 27.2.1, build 25.
 
 | Claim | Result |
 |---|---|

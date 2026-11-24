@@ -8,7 +8,7 @@ On macOS 27 with the Homebrew build, iStat Menus disappears whenever Hidden Bar 
 
 ## Evidence
 
-Folder `/Volumes/data-mini/lume/hb-shots/issue-verdicts-2721-2026-11-25/` (1.13.4 build 25, CDHash 27796c72..., macOS 27.2.1; see its `README.txt` and `build-identity.txt`).
+Evidence folder `issue-verdicts-2721-2026-11-25` on the maintainer test host (1.13.4 build 25, CDHash 27796c72..., macOS 27.2.1; see its `README.txt` and `build-identity.txt`).
 
 | Cell | Result | File |
 |---|---|---|
