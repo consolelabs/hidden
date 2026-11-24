@@ -26,6 +26,10 @@
 body_file=""; files_file=""; base="develop"; author=""; is_bot=0
 while [ $# -gt 0 ]; do
   case "$1" in
+    --body|--files|--base|--author)
+      [ $# -ge 2 ] || { echo "pr-proof-check: $1 needs a value" >&2; exit 2; } ;;
+  esac
+  case "$1" in
     --body)   body_file="$2"; shift 2 ;;
     --files)  files_file="$2"; shift 2 ;;
     --base)   base="$2"; shift 2 ;;

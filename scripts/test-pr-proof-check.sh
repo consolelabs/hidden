@@ -134,6 +134,11 @@ echo "== usage"
 EXTRA_ARGS=""
 bash "$SCRIPT" --body "$WORK/nope" --files "$WORK/nope" >/dev/null 2>&1; RC=$?
 check "missing input files exit 2" rc_is 2
+bash "$SCRIPT" --body >/dev/null 2>&1 &
+hang_pid=$!; waited=0
+while kill -0 "$hang_pid" 2>/dev/null && [ "$waited" -lt 20 ]; do sleep 0.25; waited=$((waited + 1)); done
+if kill -0 "$hang_pid" 2>/dev/null; then kill "$hang_pid" 2>/dev/null; RC=124; else wait "$hang_pid"; RC=$?; fi
+check "a flag with no value exits 2, not a hang" rc_is 2
 
 echo
 echo "passed checks: $pass  failed checks: $fail"
