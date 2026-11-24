@@ -45,7 +45,7 @@ if [ "$base" != "develop" ]; then
   exit 0
 fi
 case "$author" in
-  *"[bot]"|app/*|dependabot*|renovate*) is_bot=1 ;;
+  *"[bot]"|app/*) is_bot=1 ;;
 esac
 if [ "$is_bot" -eq 1 ]; then
   echo "PR proof: bot author. Nothing to check."
@@ -105,7 +105,11 @@ fi
 echo "PR proof: FAILED. This PR changes files that look like UI, and shows no proof."
 echo
 echo "Changed files that look like UI:"
-printf '%s' "$ui_files" | sed 's/^/  /'
+while IFS= read -r ui_path; do
+  [ -n "$ui_path" ] && printf '  - %q\n' "$ui_path"
+done <<EOF_UI
+$ui_files
+EOF_UI
 echo
 echo "Satisfy this check in one of three ways:"
 echo "  1. Add a screenshot or short recording to the PR description (light and dark where the"

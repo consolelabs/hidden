@@ -38,7 +38,7 @@ run_check() {
   : > "$WORK/files.txt"
   local f
   for f in "$@"; do printf '%s\n' "$f" >> "$WORK/files.txt"; done
-  OUT="$(bash "$SCRIPT" --body "$WORK/body.md" --files "$WORK/files.txt" $EXTRA_ARGS 2>&1)"
+  OUT="$(bash "$SCRIPT" --body "$WORK/body.md" --files "$WORK/files.txt" ${EXTRA[@]+"${EXTRA[@]}"} 2>&1)"
   RC=$?
 }
 
@@ -54,7 +54,7 @@ check() { # description, then a command
 rc_is() { [ "$RC" -eq "$1" ]; }
 out_has() { printf '%s\n' "$OUT" | grep -Fq -- "$1"; }
 
-EXTRA_ARGS=""
+EXTRA=()
 
 echo "== no UI files"
 run_check "$BODY_EMPTY" "$NON_UI" "docs/MANUAL.md" "scripts/test.sh"
@@ -88,6 +88,10 @@ https://github.com/user-attachments/assets/1234abcd-0000-0000-0000-000000000000"
 check "user-attachments URL passes" rc_is 0
 run_check "$BODY_EMPTY" "$UI_SWIFT" "docs/verification/lang-picker/settings-dark.png"
 check "PNG under docs/verification passes" rc_is 0
+run_check "$BODY_EMPTY" "$UI_SWIFT" "docs/verification/lang-picker/Settings-Dark.PNG"
+check "upper-case .PNG under docs/verification passes" rc_is 0
+run_check "$(body_with ' ' x | sed $'s/$/\r/')" "$UI_SWIFT"
+check "CRLF body with the ticked opt-out passes" rc_is 0
 
 echo "== things that must not count"
 run_check "$(body_with x ' ')" "$UI_SWIFT"
@@ -113,25 +117,42 @@ run_check "$BODY_EMPTY" "hidden/Features/Palette/PaletteContentView.swift"
 check "Palette Swift file counts as UI" rc_is 1
 run_check "$BODY_EMPTY" "hidden/Features/Reveal/RevealSession.swift"
 check "other Features Swift file is not UI" rc_is 0
+run_check "$BODY_EMPTY" "hidden/Features/Settings/My View.swift"
+check "a UI path with a space is read whole" rc_is 1
+check "a UI path with a space is named escaped" out_has 'My\ View.swift'
 run_check "$BODY_EMPTY" "Hidden Bar.xcodeproj/project.pbxproj"
-check "a path with spaces is read whole" rc_is 0
+check "a non-UI path with spaces passes" rc_is 0
+run_check "$BODY_EMPTY" "hidden/Base.lproj/Main.xib"
+check "xib change fails" rc_is 1
+run_check "$BODY_EMPTY" "::error::fake.storyboard"
+check "a path that looks like a workflow command is not printed at line start" test -z "$(printf '%s\n' "$OUT" | grep -E '^::')"
 
 echo "== bots and other bases"
-EXTRA_ARGS="--author dependabot[bot]"
+EXTRA=(--author "foo[bot]")
 run_check "$BODY_EMPTY" "$UI_SWIFT"
 check "bot login passes" rc_is 0
-EXTRA_ARGS="--bot"
+EXTRA=(--bot)
 run_check "$BODY_EMPTY" "$UI_SWIFT"
 check "--bot passes" rc_is 0
-EXTRA_ARGS="--base release/v1.13"
+EXTRA=(--base release/v1.13)
 run_check "$BODY_EMPTY" "$UI_SWIFT"
 check "base other than develop passes" rc_is 0
-EXTRA_ARGS="--base develop --author tieubao"
+EXTRA=(--base develop --author tieubao)
 run_check "$BODY_EMPTY" "$UI_SWIFT"
 check "human author on develop is checked" rc_is 1
+EXTRA=(--author dependabot-fan)
+run_check "$BODY_EMPTY" "$UI_SWIFT"
+check "a human login that starts with dependabot is checked" rc_is 1
+EXTRA=(--author renovate-fan)
+run_check "$BODY_EMPTY" "$UI_SWIFT"
+check "a human login that starts with renovate is checked" rc_is 1
+EXTRA=(--author app/dependabot)
+run_check "$BODY_EMPTY" "$UI_SWIFT"
+check "an app/ login passes" rc_is 0
+EXTRA=()
 
 echo "== usage"
-EXTRA_ARGS=""
+EXTRA=()
 bash "$SCRIPT" --body "$WORK/nope" --files "$WORK/nope" >/dev/null 2>&1; RC=$?
 check "missing input files exit 2" rc_is 2
 bash "$SCRIPT" --body >/dev/null 2>&1 &
