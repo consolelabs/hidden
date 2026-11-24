@@ -34,6 +34,15 @@ final class ArrivalsControllerTests: XCTestCase {
     private var pinsSections = true
     private var clock = Date(timeIntervalSince1970: 1_000_000)
     private var changes = 0
+    /// The lapse timers the controller set: delay, handler, and whether it was cancelled.
+    private final class FakeTimer {
+        let delay: TimeInterval
+        let fire: () -> Void
+        var cancelled = false
+        init(delay: TimeInterval, fire: @escaping () -> Void) { self.delay = delay; self.fire = fire }
+    }
+    private var timers: [FakeTimer] = []
+    private var liveTimers: [FakeTimer] { timers.filter { !$0.cancelled } }
     private var observers: [NSObjectProtocol] = []
 
     override func setUp() {
@@ -45,6 +54,7 @@ final class ArrivalsControllerTests: XCTestCase {
         choice = .ask
         pinsSections = true
         changes = 0
+        timers = []
         catalog = makeCatalog()
         observers = [center.addObserver(forName: .arrivalsChanged, object: nil, queue: nil) { [unowned self] _ in changes += 1 }]
     }
@@ -65,7 +75,12 @@ final class ArrivalsControllerTests: XCTestCase {
                                             choice: { [unowned self] in choice }, pinsSections: { [unowned self] in pinsSections },
                                             lookup: { [unowned self] in catalog.entry(for: $0) },
                                             place: place ?? { [unowned self] section, bundle in table.sections[bundle] = section },
-                                            now: { [unowned self] in clock })
+                                            now: { [unowned self] in clock },
+                                            schedule: { [unowned self] delay, fire in
+                                                let timer = FakeTimer(delay: delay, fire: fire)
+                                                timers.append(timer)
+                                                return { timer.cancelled = true }
+                                            })
         controller.start()
         return controller
     }
@@ -255,6 +270,56 @@ final class ArrivalsControllerTests: XCTestCase {
         XCTAssertEqual(controller.pending, [])
         XCTAssertEqual(table.sections["com.test.new"], .hidden)
         XCTAssertEqual(defaults.stringArray(forKey: "arrivalsPending"), [])
+    }
+
+    // Given a question that nobody answers and no prompt opened
+    // When the lapse timer the controller set fires a day later
+    // Then the question lapses by itself and the default is applied
+    func test_aQuestionLapsesOnItsOwnTimer() throws {
+        let controller = seededController()
+        read(["com.test.old", "com.test.new"])
+        choice = .hide
+
+        let timer = try XCTUnwrap(liveTimers.last)
+        XCTAssertEqual(timer.delay, ArrivalsInbox.expiry, accuracy: 1)
+        clock += ArrivalsInbox.expiry
+        timer.fire()
+
+        XCTAssertEqual(controller.pending, [])
+        XCTAssertEqual(table.sections["com.test.new"], .hidden)
+        XCTAssertEqual(defaults.stringArray(forKey: "arrivalsPending"), [])
+        XCTAssertEqual(liveTimers.count, 0, "nothing waits, so no timer is left")
+    }
+
+    // Given two waiting questions seen an hour apart
+    // Then one timer is set, for the older one, and after it fires the other is timed
+    func test_theTimerFollowsTheOldestQuestion() {
+        let controller = seededController()
+        read(["com.test.old", "com.test.first"])
+        clock += 3600
+        read(["com.test.old", "com.test.first", "com.test.second"])
+        XCTAssertEqual(controller.pending, ["com.test.first", "com.test.second"])
+
+        XCTAssertEqual(liveTimers.count, 1)
+        XCTAssertEqual(liveTimers[0].delay, ArrivalsInbox.expiry - 3600, accuracy: 1)
+
+        clock += ArrivalsInbox.expiry - 3600
+        liveTimers[0].fire()
+        XCTAssertEqual(controller.pending, ["com.test.second"])
+        XCTAssertEqual(liveTimers.count, 1)
+        XCTAssertEqual(liveTimers[0].delay, 3600, accuracy: 1)
+    }
+
+    // Given a waiting question with a timer
+    // When the user answers it
+    // Then the timer is cancelled
+    func test_answeringCancelsTheTimer() {
+        let controller = seededController()
+        read(["com.test.old", "com.test.new"])
+        XCTAssertEqual(liveTimers.count, 1)
+
+        controller.answer("com.test.new", .show)
+        XCTAssertEqual(liveTimers.count, 0)
     }
 
     // Given a waiting app the user removes from the Icons list

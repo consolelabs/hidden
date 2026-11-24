@@ -24,6 +24,9 @@ struct ArrivalInfo {
     let iconCount: Int
 }
 
+// Runs `fire` once after `delay` seconds; the returned closure cancels it.
+typealias LapseScheduler = (TimeInterval, @escaping () -> Void) -> () -> Void
+
 // Puts the inbox's decisions to work: it listens for the catalog's arrivals,
 // applies the Settings default through `PinnedSectionEdits.set` (the same write
 // the Icons list makes, so the engine follows at once), keeps the questions that
@@ -44,7 +47,18 @@ final class ArrivalsController {
     private let lookup: (String) -> MenuBarCatalogEntry?
     private let place: (MenuBarSection, String) -> Void
     private let now: () -> Date
+    private let schedule: LapseScheduler
+    // Cancels the timer that lapses the first waiting question.
+    private var cancelLapse: (() -> Void)?
     private var observer: NSObjectProtocol?
+
+    // A one-shot timer on the main run loop. A Mac asleep at the due time fires it on wake.
+    static let mainRunLoopSchedule: LapseScheduler = { delay, fire in
+        let timer = Timer(timeInterval: delay, repeats: false) { _ in fire() }
+        timer.tolerance = min(delay * 0.1, 60)
+        RunLoop.main.add(timer, forMode: .common)
+        return { timer.invalidate() }
+    }
 
     init(defaults: UserDefaults = AppDefaults.store,
          center: NotificationCenter = .default,
@@ -53,7 +67,8 @@ final class ArrivalsController {
          pinsSections: @escaping () -> Bool = { Preferences.pinnedSectionsEnabled },
          lookup: @escaping (String) -> MenuBarCatalogEntry? = { MenuBarItemCatalog.shared.entry(for: $0) },
          place: ((MenuBarSection, String) -> Void)? = nil,
-         now: @escaping () -> Date = Date.init) {
+         now: @escaping () -> Date = Date.init,
+         schedule: @escaping LapseScheduler = ArrivalsController.mainRunLoopSchedule) {
         self.store = UserDefaultsArrivalsPending(defaults: defaults)
         self.center = center
         self.table = table
@@ -62,11 +77,13 @@ final class ArrivalsController {
         self.lookup = lookup
         self.place = place ?? { section, bundle in PinnedSectionEdits.set(section, for: bundle, in: table) }
         self.now = now
+        self.schedule = schedule
         inbox = ArrivalsInbox(pending: store.bundles)
     }
 
     deinit {
         observer.map(center.removeObserver)
+        cancelLapse?()
     }
 
     // Starts listening. Safe to call twice.
@@ -98,6 +115,7 @@ final class ArrivalsController {
     }
 
     // Lapsed questions, and questions about apps the user removed from the Icons list.
+    // Runs at launch, when the prompt opens, and when the lapse timer fires.
     func refresh() {
         var next = inbox
         next.prune(keeping: table.sections)
@@ -144,7 +162,17 @@ final class ArrivalsController {
         for placement in placements {
             place(placement.section, placement.bundle)
         }
+        armLapseTimer()
         if changed { center.post(name: .arrivalsChanged, object: self) }
+    }
+
+    // One timer, set for the first question to lapse, so a Mac left running for days
+    // still applies the default at the 24 hour mark. Every change re-arms it.
+    private func armLapseTimer() {
+        cancelLapse?()
+        cancelLapse = nil
+        guard let due = inbox.nextLapse(firstSeen: { lookup($0)?.firstSeen }) else { return }
+        cancelLapse = schedule(max(due.timeIntervalSince(now()), 1)) { [weak self] in self?.refresh() }
     }
 
     #if DEBUG
