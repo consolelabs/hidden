@@ -388,7 +388,9 @@
 		F248811CF183BD0A4D71C4C6 /* NativeVisibilityEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeVisibilityEngine.swift; sourceTree = "<group>"; };
 		F51314A736131BE28182E378 /* AccessibilityPermission.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccessibilityPermission.swift; sourceTree = "<group>"; };
 		FB0B14538BC3AE95D43DE899 /* AccessibilityMenuBarInventory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityMenuBarInventory.swift; sourceTree = "<group>"; };
+		FC98759656F725079F792372 /* pt-BR */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "pt-BR"; path = "pt-BR.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		FF57A44B25E6C50200988FC2 /* zh-Hant */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hant"; path = "zh-Hant.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		FF8780CBB32124C104ED5F32 /* pt-BR */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "pt-BR"; path = "pt-BR.lproj/Main.strings"; sourceTree = "<group>"; };
 		FF8A0FB5265E10DB00C76226 /* zh-Hant */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hant"; path = "zh-Hant.lproj/Main.strings"; sourceTree = "<group>"; };
 		CC578DAB31FEC93C94CF9848 /* SystemOverflowIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemOverflowIndicator.swift; sourceTree = "<group>"; };
 		BEE84E518F665B2584F8277A /* SystemOverflowNotice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemOverflowNotice.swift; sourceTree = "<group>"; };
@@ -969,6 +971,7 @@
 				tr,
 				uk,
 				it,
+				"pt-BR",
 			);
 			mainGroup = 929113E821F9D04100173149;
 			packageReferences = (
@@ -1315,6 +1318,7 @@
 				C050D3A56172F87DBC375458 /* tr */,
 				8E5691321C25234F8DAFC5C8 /* uk */,
 				B6BFE1451DECE8B6052608CE /* it */,
+				FF8780CBB32124C104ED5F32 /* pt-BR */,
 			);
 			name = Main.storyboard;
 			sourceTree = "<group>";
@@ -1335,6 +1339,7 @@
 				A6E6836C05AA33888022D2DF /* tr */,
 				074E7B626426FB827E59570F /* uk */,
 				15C9D233ED7802C9AB5C7240 /* it */,
+				FC98759656F725079F792372 /* pt-BR */,
 			);
 			name = Localizable.strings;
 			sourceTree = "<group>";

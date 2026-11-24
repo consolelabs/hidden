@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Brazilian Portuguese (pt-BR) translation: every string, the app menu, and the Settings › General › "App language" list, where it shows as "português (Brasil)".
+
 ## v1.13.4 (2026-11-23)
 
 ### Added

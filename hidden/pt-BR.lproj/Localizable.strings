@@ -1,0 +1,327 @@
+/*
+  Localizable.strings
+  Hidden Bar
+
+  Created by Licardo on 2020/3/9.
+  Copyright © 2020 Console Labs. All rights reserved.
+*/
+
+"Preferences..." = "Preferências...";
+"Toggle Auto Collapse" = "Alternar Recolhimento Automático";
+"Enable Auto Collapse" = "Ativar Recolhimento Automático";
+"Disable Auto Collapse" = "Desativar Recolhimento Automático";
+"Quit" = "Encerrar";
+"macOS 27: get the working version..." = "macOS 27: obter a versão que funciona...";
+"Hidden Bar cannot hide icons on macOS 27" = "O Hidden Bar não consegue ocultar ícones no macOS 27";
+"macOS 27 no longer lets App Store apps hide menu-bar icons. Hidden Bar from github.com/consolelabs/hidden (free, open source) works on macOS 27." = "O macOS 27 não permite mais que apps da App Store ocultem ícones da barra de menus. O Hidden Bar de github.com/consolelabs/hidden (gratuito e de código aberto) funciona no macOS 27.";
+"Open github.com/consolelabs/hidden" = "Abrir github.com/consolelabs/hidden";
+"Close" = "Fechar";
+"Don't show again" = "Não mostrar novamente";
+"Hidden Bar on macOS 27" = "Hidden Bar no macOS 27";
+"Or install it with Homebrew:" = "Ou instale com o Homebrew:";
+"Import your settings from the App Store version?" = "Importar seus ajustes da versão da App Store?";
+"Hidden Bar from the App Store keeps its settings in a separate place. Import them so this version starts the way you set it up." = "O Hidden Bar da App Store guarda os ajustes em outro lugar. Importe-os para que esta versão comece do jeito que você configurou.";
+"Import" = "Importar";
+"Not now" = "Agora não";
+"Move the App Store copy to the Trash?" = "Mover a cópia da App Store para o Lixo?";
+"The App Store version of Hidden Bar is still installed:\n%@\nYou can restore it from the Trash later." = "A versão da App Store do Hidden Bar ainda está instalada:\n%@\nVocê pode recuperá-la do Lixo depois.";
+"Move to Trash" = "Mover para o Lixo";
+"Move Hidden Bar to the Applications folder?" = "Mover o Hidden Bar para a pasta Aplicativos?";
+"Hidden Bar is running from outside Applications. The copy already in Applications goes to the Trash, then Hidden Bar relaunches from there." = "O Hidden Bar está sendo executado fora de Aplicativos. A cópia que já está em Aplicativos vai para o Lixo e, em seguida, o Hidden Bar reabre a partir de lá.";
+"Hidden Bar is running from outside Applications. Move it there so it keeps working after you empty Downloads, then relaunch." = "O Hidden Bar está sendo executado fora de Aplicativos. Mova-o para lá e reabra-o, para que continue funcionando depois que você limpar a pasta Downloads.";
+"Move to Applications" = "Mover para Aplicativos";
+"Hidden Bar from the App Store is running. Quit it and switch to this version?" = "O Hidden Bar da App Store está em execução. Encerrá-lo e trocar para esta versão?";
+"Only one Hidden Bar can run at a time. The App Store version stays installed until you choose otherwise." = "Só um Hidden Bar pode ser executado por vez. A versão da App Store continua instalada até você decidir o contrário.";
+"Quit and Switch" = "Encerrar e Trocar";
+"Cancel" = "Cancelar";
+"OK" = "OK";
+"Hidden Bar can hide icons only from /Applications" = "O Hidden Bar só consegue ocultar ícones quando está em /Applications";
+"The App Store copy is in /Applications. Quit Hidden Bar, move /Applications/Hidden Bar.app to the Trash, drag this copy into Applications, then open it from there." = "A cópia da App Store está em /Applications. Encerre o Hidden Bar, mova /Applications/Hidden Bar.app para o Lixo, arraste esta cópia para Aplicativos e abra-a a partir de lá.";
+"This account can't add apps to /Applications. Ask an administrator to drag Hidden Bar into /Applications, then open it from there." = "Esta conta não pode adicionar apps a /Applications. Peça a um administrador para arrastar o Hidden Bar para /Applications e depois abra-o a partir de lá.";
+"Set Shortcut" = "Definir Atalho";
+"Show Notch Items" = "Mostrar Itens do Notch";
+"Notch Overflow" = "Itens Atrás do Notch";
+"Hidden Behind Notch (%d)" = "Ocultos Atrás do Notch (%d)";
+"Visible (%d)" = "Visíveis (%d)";
+"No items found (grant Accessibility permission)" = "Nenhum item encontrado (conceda a permissão de Acessibilidade)";
+"Enable Notch Overflow (right-click ‹ to access hidden icons)" = "Ativar Itens Atrás do Notch (clique com o botão direito em ‹ para acessar os ícones ocultos)";
+"Tutorial text" = "
+Use o recurso sempre oculto para manter seus ícones organizados. Veja como configurar
+Passos para ativar:
+1. Ative a barra sempre oculta “|” (barra de cor translúcida)
+2. Mantenha  ⌘ pressionado e arraste-a para o lado esquerdo da barra normal; depois, mova para a esquerda dessa barra os ícones que você quer esconder.
+3. Por fim, mantenha ⌥ Option pressionado e clique no ícone de recolher “<” para fazê-la desaparecer.
+Passos para ver os ícones sempre ocultos:
+1. Clique com Option no ícone “<” novamente para vê-los e repita a ação para reativar o recurso. Aproveite 😉!
+";
+"Show all icons while macOS would also hide one right of the arrow" = "Mostrar todos os ícones enquanto o macOS também ocultaria algum à direita da seta";
+"Check for Updates..." = "Verificar Atualizações...";
+"Automatically check for updates" = "Verificar atualizações automaticamente";
+"Arrow style" = "Estilo da seta";
+"Arrow" = "Seta";
+"Chevron" = "Angular";
+"Dot" = "Ponto";
+"Line" = "Linha";
+"Hidden Bar needs Accessibility access to hide icons." = "O Hidden Bar precisa da permissão de Acessibilidade para ocultar ícones.";
+"Open Settings…" = "Abrir Ajustes…";
+"Expand the bar when the pointer rests on the menu bar" = "Expandir a barra quando o ponteiro parar sobre a barra de menus";
+"Show the whole bar when the microphone or camera turns on" = "Mostrar a barra inteira quando o microfone ou a câmera ligar";
+"Tutorial text (arrow boundary)" = "
+Use o recurso sempre oculto para manter seus ícones organizados. Veja como configurar
+Passos para ativar:
+1. Ative a barra sempre oculta “|” (barra de cor translúcida)
+2. Mantenha  ⌘ pressionado e arraste-a para a esquerda da seta; depois, mova para a esquerda dessa barra os ícones que você quer esconder.
+3. Por fim, mantenha ⌥ Option pressionado e clique no ícone de recolher “<” para fazê-la desaparecer.
+Passos para ver os ícones sempre ocultos:
+1. Clique com Option no ícone “<” novamente para vê-los e repita a ação para reativar o recurso. Aproveite 😉!
+";
+
+/* Settings window (1.12) */
+"General" = "Geral";
+"Icons" = "Ícones";
+"Appearance" = "Aparência";
+"Advanced" = "Avançado";
+"About" = "Sobre";
+"Hidden Bar is working" = "O Hidden Bar está funcionando";
+"Click the arrow in the menu bar, or press %@, to show hidden icons." = "Clique na seta na barra de menus ou pressione %@ para mostrar os ícones ocultos.";
+"Click the arrow in the menu bar to show hidden icons." = "Clique na seta na barra de menus para mostrar os ícones ocultos.";
+"Hidden Bar needs Accessibility access" = "O Hidden Bar precisa da permissão de Acessibilidade";
+"macOS 27 lets Hidden Bar hide icons only with this permission. Nothing is hidden until you turn it on." = "No macOS 27, o Hidden Bar só consegue ocultar ícones com esta permissão. Nada fica oculto até você ativá-la.";
+"Open System Settings" = "Abrir Ajustes do Sistema";
+"Move Hidden Bar to Applications" = "Mover o Hidden Bar para Aplicativos";
+"It is running from %@. macOS 27 hides icons only for apps in the Applications folder, so nothing is hidden yet." = "Ele está sendo executado a partir de %@. O macOS 27 só oculta ícones de apps que estão na pasta Aplicativos, então nada está oculto ainda.";
+"This App Store version can't hide icons on macOS 27" = "Esta versão da App Store não consegue ocultar ícones no macOS 27";
+"Apple's sandbox blocks hiding on macOS 27. Your settings below are kept." = "O sandbox da Apple bloqueia a ocultação no macOS 27. Seus ajustes abaixo são mantidos.";
+"Learn More…" = "Saiba Mais…";
+"Your menu bar" = "Sua barra de menus";
+"Always hidden" = "Sempre ocultos";
+"Translucent bar" = "Barra translúcida";
+"Hidden" = "Ocultos";
+"Separator" = "Separador";
+"Always shown" = "Sempre visíveis";
+"Hold ⌘ and drag an icon left of the arrow to hide it." = "Mantenha ⌘ pressionado e arraste um ícone para a esquerda da seta para ocultá-lo.";
+"Hold ⌘ and drag an icon left of the | separator to hide it." = "Mantenha ⌘ pressionado e arraste um ícone para a esquerda do separador | para ocultá-lo.";
+"Option-click the arrow to see always-hidden icons." = "Clique com Option na seta para ver os ícones sempre ocultos.";
+"Open Hidden Bar at login" = "Abrir o Hidden Bar ao iniciar a sessão";
+"Could not update the login item" = "Não foi possível atualizar o item de início";
+"Check System Settings > General > Login Items and make sure Hidden Bar is allowed." = "Verifique Ajustes do Sistema > Geral > Itens de Início e confirme que o Hidden Bar está permitido.";
+"Hide icons again" = "Ocultar ícones novamente";
+"Never" = "Nunca";
+"After %d seconds" = "Após %d segundos";
+"After 1 minute" = "Após 1 minuto";
+"Always-hidden section" = "Seção sempre oculta";
+"A second group, left of the hidden icons, that stays hidden when you click the arrow." = "Um segundo grupo, à esquerda dos ícones ocultos, que continua oculto quando você clica na seta.";
+"Keyboard shortcut" = "Atalho de teclado";
+"Type a Shortcut…" = "Digite um Atalho…";
+"Clear" = "Limpar";
+"Also show hidden icons when you" = "Também mostrar os ícones ocultos ao";
+"Rest the pointer on the menu bar" = "Parar o ponteiro sobre a barra de menus";
+"Scroll down on the menu bar" = "Rolar para baixo na barra de menus";
+"Scroll up to hide them again." = "Role para cima para ocultá-los de novo.";
+"Click empty space in the menu bar" = "Clicar em um espaço vazio da barra de menus";
+"Shake the pointer at the top of the screen" = "Sacudir o ponteiro no topo da tela";
+"Three quick side-to-side moves." = "Três movimentos rápidos de um lado para o outro.";
+"Clicking anywhere off the menu bar hides them again." = "Clicar em qualquer lugar fora da barra de menus os oculta de novo.";
+"Privacy and permissions" = "Privacidade e permissões";
+"Accessibility" = "Acessibilidade";
+"Allowed" = "Permitido";
+"Off" = "Desativado";
+"Show all icons when the microphone or camera turns on" = "Mostrar todos os ícones quando o microfone ou a câmera ligar";
+"So you see which app is using it. Click the arrow to hide again." = "Assim você vê qual app está usando. Clique na seta para ocultar de novo.";
+"Fade the arrow when icons are hidden" = "Esmaecer a seta quando os ícones estiverem ocultos";
+"The arrow turns almost invisible until you need it. It is still there to click." = "A seta fica quase invisível até você precisar dela. Ela continua lá para ser clicada.";
+"Each preview shows the arrow with icons hidden, then shown." = "Cada prévia mostra a seta com os ícones ocultos e, depois, visíveis.";
+"Show this window when Hidden Bar opens" = "Mostrar esta janela quando o Hidden Bar abrir";
+"Make room for icons while they are shown" = "Abrir espaço para os ícones enquanto estiverem visíveis";
+"Hides the menus of the app you are using while hidden icons are shown, so more icons fit." = "Oculta os menus do app que você está usando enquanto os ícones ocultos estão visíveis, para caberem mais ícones.";
+"Reach icons behind the camera notch" = "Acessar ícones atrás do notch da câmera";
+"Right-click the arrow to list icons the notch covers." = "Clique com o botão direito na seta para listar os ícones que o notch cobre.";
+"Pause hiding while macOS shows Now Playing, Focus and similar items" = "Pausar a ocultação enquanto o macOS mostra Reproduzindo, Foco e itens parecidos";
+"macOS 27 hides these items whenever an app hides icons. While one shows, Hidden Bar hides nothing." = "O macOS 27 oculta esses itens sempre que um app oculta ícones. Enquanto um deles estiver visível, o Hidden Bar não oculta nada.";
+"Seen on this Mac: %@." = "Vistos neste Mac: %@.";
+"Hiding method" = "Método de ocultação";
+"macOS 27 visibility" = "Visibilidade no macOS 27";
+"The arrow is the edge. Picked for your macOS version." = "A seta é o limite. Escolhido para a sua versão do macOS.";
+"The | separator is the edge. Picked for your macOS version." = "O separador | é o limite. Escolhido para a sua versão do macOS.";
+"Version" = "Versão";
+"Direct download" = "Download direto";
+"Mac App Store" = "Mac App Store";
+"Keeps your menu bar tidy." = "Mantém sua barra de menus organizada.";
+"Check for updates automatically" = "Verificar atualizações automaticamente";
+"Last checked %@." = "Última verificação: %@.";
+"Check for Updates…" = "Verificar Atualizações…";
+"What's new" = "Novidades";
+"Updates come from the Mac App Store." = "As atualizações vêm da Mac App Store.";
+"Help and feedback" = "Ajuda e feedback";
+"Report a problem" = "Relatar um problema";
+"On GitHub. Please say your macOS version and which Hidden Bar you use." = "No GitHub. Informe sua versão do macOS e qual Hidden Bar você usa.";
+"Email" = "E-mail";
+"Source code" = "Código-fonte";
+"Free and open source, MIT license." = "Gratuito e de código aberto, licença MIT.";
+"Made by Console Labs" = "Feito pela Console Labs";
+
+/* Pinned sections (beta), Icons */
+"Pinned sections (beta)" = "Seções fixas (beta)";
+"Keeps each app in the section you pick in Icons, also after it restarts. Applies at the next collapse." = "Mantém cada app na seção que você escolher em Ícones, mesmo depois que ele reiniciar. Vale a partir do próximo recolhimento.";
+"Turn On" = "Ativar";
+"Pinned sections is off" = "As seções fixas estão desativadas";
+"Icons follow where macOS puts them. Turn on Pinned sections (beta) in Advanced to choose a section for each app." = "Os ícones ficam onde o macOS os coloca. Ative Seções fixas (beta) em Avançado para escolher uma seção para cada app.";
+"Each app stays in the section you pick, also after it restarts. ⌘-dragging an icon across the arrow moves it too. Ignore drags keeps an app in its section even when its icon moves on its own (SwiftBar, BitBar)." = "Cada app fica na seção que você escolher, mesmo depois que ele reiniciar. Arrastar um ícone com ⌘ para o outro lado da seta também o move. Ignorar arrastos mantém um app na sua seção mesmo quando o ícone se move sozinho (SwiftBar, BitBar).";
+"No apps yet" = "Nenhum app ainda";
+"Apps with a menu bar icon appear here after the bar collapses once." = "Apps com ícone na barra de menus aparecem aqui depois que a barra for recolhida uma vez.";
+
+/* Icons pane: names of macOS services and the "macOS" caption */
+"Widgets and Live Activities" = "Widgets e Atividades ao Vivo";
+"Calendar" = "Calendário";
+"AirDrop and Sharing" = "AirDrop e Compartilhamento";
+"Shortcuts" = "Atalhos";
+"Photos" = "Fotos";
+"Printing" = "Impressão";
+"Screen Sharing" = "Compartilhamento de Tela";
+"iPhone and iPad Apps" = "Apps de iPhone e iPad";
+"Background Items" = "Itens em Segundo Plano";
+"Wi-Fi" = "Wi-Fi";
+"macOS" = "macOS";
+"Reset" = "Redefinir";
+"Reset all to visible" = "Redefinir tudo como visível";
+"Shows every app, including ones that are not running now." = "Mostra todos os apps, inclusive os que não estão em execução agora.";
+"Ignore drags" = "Ignorar arrastos";
+"Ignore drags keeps this app in its section even when its icon moves on its own (SwiftBar, BitBar). Dragging then changes nothing; the popup still does." = "Ignorar arrastos mantém este app na sua seção mesmo quando o ícone se move sozinho (SwiftBar, BitBar). Arrastar então não muda nada; o menu pop-up ainda muda.";
+"Remove" = "Remover";
+"Not running" = "Não está em execução";
+"Visible" = "Visíveis";
+"Show Everything" = "Mostrar Tudo";
+"Your menu bar is full" = "Sua barra de menus está cheia";
+"macOS moved the Hidden Bar arrow into the « button. Click « to reach it, or use the Hidden Bar hotkey. To keep the arrow in view, move some icons to the left of the arrow." = "O macOS moveu a seta do Hidden Bar para o botão «. Clique em « para acessá-la ou use o atalho de teclado do Hidden Bar. Para manter a seta à vista, mova alguns ícones para a esquerda dela.";
+"Some icons are in the « button" = "Alguns ícones estão no botão «";
+"Some icons do not fit in the menu bar, so macOS moved them into its own « button. Click « to see them. To make room, move icons you rarely use to the always-hidden section." = "Alguns ícones não cabem na barra de menus, então o macOS os moveu para o próprio botão «. Clique em « para vê-los. Para abrir espaço, mova os ícones que você usa pouco para a seção sempre oculta.";
+"Also used by %@" = "Também usado por %@";
+"Show or hide icons" = "Mostrar ou ocultar ícones";
+"Ask Me" = "Perguntar";
+"Show It" = "Mostrar";
+"Hide It" = "Ocultar";
+"When an app adds a new icon" = "Quando um app adicionar um ícone novo";
+"Ask puts a dot on the arrow and keeps the icon shown until you choose." = "Perguntar coloca um ponto na seta e mantém o ícone visível até você escolher.";
+"NEW" = "NOVO";
+"Not chosen yet" = "Ainda não escolhido";
+"Not chosen yet. Not running now." = "Ainda não escolhido. Não está em execução agora.";
+"New in your menu bar" = "Novo na sua barra de menus";
+"%d new apps in your menu bar" = "%d apps novos na sua barra de menus";
+"Choose once. Hidden Bar remembers, also after the app or your Mac restarts." = "Escolha uma vez. O Hidden Bar se lembra, mesmo depois que o app ou o seu Mac reiniciar.";
+"Not running now. It stays shown until you choose." = "Não está em execução agora. Continua visível até você escolher.";
+"Added %d icons. They show or hide together." = "Adicionou %d ícones. Eles aparecem ou se ocultam juntos.";
+"Added an icon %@" = "Adicionou um ícone %@";
+"just now" = "agora mesmo";
+"Show" = "Mostrar";
+"Hide" = "Ocultar";
+"More" = "Mais";
+"Always hide" = "Sempre ocultar";
+"Kept" = "Mantido";
+"Not sure? It stays shown until you choose." = "Em dúvida? Ele continua visível até você escolher.";
+"Settings…" = "Ajustes…";
+"and %d more" = "e mais %d";
+"Hide All" = "Ocultar Todos";
+"Show All" = "Mostrar Todos";
+"Show leaves a new icon where macOS puts it. Nothing is asked." = "Mostrar deixa um ícone novo onde o macOS o colocar. Nada é perguntado.";
+"Hide moves a new icon to Hidden at once. Nothing is asked." = "Ocultar move um ícone novo para Ocultos na hora. Nada é perguntado.";
+"Find a hidden icon" = "Encontrar um ícone oculto";
+"Opens a search under the arrow. Type a few letters, then press Return to open that app's menu." = "Abre uma busca abaixo da seta. Digite algumas letras e pressione Return para abrir o menu daquele app.";
+"Find a Hidden Icon..." = "Encontrar um Ícone Oculto...";
+"Open" = "Abrir";
+"Opening…" = "Abrindo…";
+"Open its menu" = "Abrir o menu";
+"Keep shown" = "Manter visível";
+"Always hide" = "Sempre ocultar";
+"%@ is shown in the menu bar now." = "%@ agora está visível na barra de menus.";
+"%@ is not running." = "%@ não está em execução.";
+"Only hidden icons are listed. Shown icons are already one click away." = "Só os ícones ocultos aparecem na lista. Os visíveis já estão a um clique de distância.";
+"No hidden icon matches \"%@\"" = "Nenhum ícone oculto corresponde a “%@”";
+"Nothing is hidden right now" = "Nada está oculto agora";
+"Hold ⌘ and drag an icon left of the arrow, or pick sections in Settings." = "Mantenha ⌘ pressionado e arraste um ícone para a esquerda da seta, ou escolha as seções nos Ajustes.";
+"Open Menu Bar Apps" = "Abrir Apps da Barra de Menus";
+"It reads which apps are in the menu bar and opens their menus. It never reads what is on your screen." = "Ele lê quais apps estão na barra de menus e abre os menus deles. Nunca lê o que está na sua tela.";
+"%@ can't be opened from here" = "Não é possível abrir %@ daqui";
+"macOS hides Focus, Siri and Now Playing whenever Hidden Bar hides icons. Click the arrow to show everything." = "O macOS oculta Foco, Siri e Reproduzindo sempre que o Hidden Bar oculta ícones. Clique na seta para mostrar tudo.";
+"Hidden Bar is not hiding icons right now" = "O Hidden Bar não está ocultando ícones agora";
+"Every icon is already in the menu bar, so there is nothing to find. Open Settings to see why." = "Todos os ícones já estão na barra de menus, então não há nada para encontrar. Abra os Ajustes para ver o motivo.";
+"Its icon does not answer Accessibility. Click the arrow to show everything, then click its icon." = "O ícone dele não responde à Acessibilidade. Clique na seta para mostrar tudo e depois clique no ícone.";
+"Presenting" = "Apresentando";
+"Paused" = "Pausado";
+"Couldn't hide" = "Falha ao ocultar";
+"+%d more" = "+%d outros";
+"Presentation mode is on" = "O modo de apresentação está ativado";
+"Started because \"%@\" is mirrored. Ends when mirroring stops." = "Iniciado pelo espelhamento de “%@”. Termina quando o espelhamento parar.";
+"Started because a display is mirrored. Ends when mirroring stops." = "Iniciado porque uma tela está espelhada. Termina quando o espelhamento parar.";
+"Started by you. It stays on until you stop it." = "Iniciado por você. Continua ativado até você pará-lo.";
+"Hidden now: 1 app" = "Ocultos agora: 1 app";
+"Hidden now: %d apps" = "Ocultos agora: %d apps";
+"1 sensitive app stays hidden even if you click the arrow" = "1 app sensível continua oculto mesmo se você clicar na seta";
+"%d sensitive apps stay hidden even if you click the arrow" = "%d apps sensíveis continuam ocultos mesmo se você clicar na seta";
+"Stop Presenting" = "Parar Apresentação";
+"macOS's own items stay." = "Os itens do próprio macOS continuam.";
+"Hiding paused: camera or microphone in use" = "Ocultação pausada: câmera ou microfone em uso";
+"Nothing is hidden right now, sensitive apps included. macOS 27 hides the capsule that names the app using your camera or microphone along with other icons, so Hidden Bar shows every icon when one turns on." = "Nada está oculto agora, nem os apps sensíveis. O macOS 27 oculta, junto com os outros ícones, a cápsula que indica qual app está usando sua câmera ou microfone, por isso o Hidden Bar mostra todos os ícones quando um deles liga.";
+"To keep apps out of a shared screen during a call:" = "Para manter apps fora de uma tela compartilhada durante uma chamada:";
+"Share one window, not the whole screen" = "Compartilhe uma janela, não a tela inteira";
+"The menu bar is not in the picture." = "A barra de menus não aparece na imagem.";
+"Quit sensitive apps before the call" = "Encerre os apps sensíveis antes da chamada";
+"Hidden Bar will not quit apps for you." = "O Hidden Bar não encerra apps por você.";
+"Resumes on its own." = "Retoma automaticamente.";
+"Hide again" = "Ocultar novamente";
+"Hidden Bar could not hide your icons" = "O Hidden Bar não conseguiu ocultar seus ícones";
+"macOS did not accept the request, so every icon is showing. Stop presentation mode and start it again, or quit the sensitive apps first." = "O macOS não aceitou o pedido, então todos os ícones estão visíveis. Pare o modo de apresentação e inicie-o de novo, ou encerre antes os apps sensíveis.";
+"1 app stays hidden" = "1 app continua oculto";
+"%d apps stay hidden" = "%d apps continuam ocultos";
+"Stop Presentation Mode" = "Parar Modo de Apresentação";
+"Start Presentation Mode" = "Iniciar Modo de Apresentação";
+"Presentation mode" = "Modo de apresentação";
+"Turn on automatically" = "Ativar automaticamente";
+"When a display is mirrored." = "Quando uma tela for espelhada.";
+"Sensitive apps" = "Apps sensíveis";
+"Stay hidden while presenting, even when you click the arrow, except while hiding is paused for the camera or microphone." = "Continuam ocultos durante a apresentação, mesmo quando você clica na seta, exceto enquanto a ocultação estiver pausada por causa da câmera ou do microfone.";
+"Every third-party app icon is hidden. macOS's own items stay." = "Todos os ícones de apps de terceiros ficam ocultos. Os itens do próprio macOS continuam.";
+"Click Presenting to see how many apps are hidden, or to stop." = "Clique em Apresentando para ver quantos apps estão ocultos ou para parar.";
+"If the camera or microphone turns on, hiding pauses once so macOS can show which app uses it." = "Se a câmera ou o microfone ligar, a ocultação pausa uma vez para que o macOS possa mostrar qual app está usando.";
+"Hiding keeps going when the camera or microphone turns on, as set in Settings." = "A ocultação continua quando a câmera ou o microfone liga, conforme definido nos Ajustes.";
+"Got it" = "Entendi";
+"How it works" = "Como funciona";
+"Start it with the shortcut above, the arrow's right-click menu, or automatically when a display is mirrored." = "Inicie-o com o atalho acima, pelo menu de clique com o botão direito da seta ou automaticamente quando uma tela for espelhada.";
+"While it is on, every third-party app icon is hidden. macOS's own items stay. Reveal gestures and the new-app question wait." = "Enquanto ele estiver ativado, todos os ícones de apps de terceiros ficam ocultos. Os itens do próprio macOS continuam. Os gestos para revelar e a pergunta sobre apps novos aguardam.";
+"\"Find a hidden icon\" leaves sensitive apps out of its list too." = "“Encontrar um ícone oculto” também deixa os apps sensíveis fora da lista.";
+"If \"Show all icons when the microphone or camera turns on\" is on, a camera or microphone that turns on while you present pauses hiding once, so macOS can show which app uses it. Nothing is hidden meanwhile, sensitive apps included. Hiding resumes when you click Hide again or collapse the bar, or when the camera and microphone turn off. A camera or microphone already on when you start does not pause it. With the switch off, hiding never pauses." = "Se “Mostrar todos os ícones quando o microfone ou a câmera ligar” estiver ativado, uma câmera ou microfone que ligar durante a apresentação pausa a ocultação uma vez, para que o macOS possa mostrar qual app está usando. Enquanto isso, nada fica oculto, nem os apps sensíveis. A ocultação é retomada quando você clica em Ocultar novamente ou recolhe a barra, ou quando a câmera e o microfone desligam. Uma câmera ou microfone que já estava ligado quando você começou não a pausa. Com a opção desativada, a ocultação nunca pausa.";
+"Stop it from the Presenting capsule, the shortcut, or the right-click menu. An automatic start also ends when mirroring stops." = "Pare-o pela cápsula Apresentando, pelo atalho ou pelo menu de clique com o botão direito. Um início automático também termina quando o espelhamento para.";
+"Edit..." = "Editar...";
+"None" = "Nenhum";
+"Choose the apps that stay hidden while presenting, even when you click the arrow, except while hiding is paused for the camera or microphone." = "Escolha os apps que continuam ocultos durante a apresentação, mesmo quando você clica na seta, exceto enquanto a ocultação estiver pausada por causa da câmera ou do microfone.";
+"Apps with a menu bar icon appear here once Hidden Bar has seen them." = "Apps com ícone na barra de menus aparecem aqui assim que o Hidden Bar os detecta.";
+"Right-click on the arrow" = "Clique com o botão direito na seta";
+"Show menu" = "Mostrar menu";
+"Show always-hidden icons" = "Mostrar ícones sempre ocultos";
+"Option-right-click the arrow to open the menu." = "Clique com o botão direito na seta com Option pressionado para abrir o menu.";
+"Hidden Bar %@ is running. Quit it and switch to this version?" = "O Hidden Bar %@ está em execução. Encerrá-lo e trocar para esta versão?";
+"Only one Hidden Bar can run at a time. The older version stays where it is until you choose otherwise." = "Só um Hidden Bar pode ser executado por vez. A versão mais antiga continua onde está até você decidir o contrário.";
+"Hidden Bar could not move the App Store copy to the Trash" = "O Hidden Bar não conseguiu mover a cópia da App Store para o Lixo";
+"Drag it to the Trash in Finder instead:\n%@" = "Em vez disso, arraste-a para o Lixo no Finder:\n%@";
+"a temporary folder" = "uma pasta temporária";
+"Quit this App Store version and move it to the Trash first. Homebrew does not install over it." = "Encerre esta versão da App Store e mova-a para o Lixo antes. O Homebrew não instala por cima dela.";
+"Hiding is paused" = "A ocultação está pausada";
+"macOS hides these icons whatever Hidden Bar allows: %@. They sit right of the arrow, so the pause switch in Advanced keeps everything visible while they are there." = "O macOS oculta estes ícones independentemente do que o Hidden Bar permite: %@. Eles ficam à direita da seta, então a opção de pausa em Avançado mantém tudo visível enquanto eles estiverem lá.";
+"icons with no name" = "ícones sem nome";
+"Nothing to hide" = "Nada para ocultar";
+"Every icon is right of the arrow, so there is nothing to hide. Hold Command and drag the arrow to the right of the icons you want to hide." = "Todos os ícones estão à direita da seta, então não há nada para ocultar. Mantenha Command pressionado e arraste a seta para a direita dos ícones que você quer ocultar.";
+
+/* Language */
+"Language" = "Idioma";
+"App language" = "Idioma do app";
+"System (follow macOS)" = "Sistema (seguir o macOS)";
+"Takes effect after Hidden Bar restarts." = "Passa a valer depois que o Hidden Bar reiniciar.";
+"Restart Hidden Bar to apply the new language." = "Reinicie o Hidden Bar para aplicar o novo idioma.";
+"Restart Now" = "Reiniciar Agora";
+"Later" = "Mais Tarde";
+"Restore settings from the App Store version" = "Restaurar ajustes da versão da App Store";
+"Copies the settings the App Store version saved into this version. Your current settings are replaced." = "Copia para esta versão os ajustes que a versão da App Store salvou. Seus ajustes atuais são substituídos.";
+"Restore…" = "Restaurar…";
+"Restore your settings from the App Store version?" = "Restaurar seus ajustes da versão da App Store?";
+"This replaces the settings you have now with the ones the App Store version saved." = "Isto substitui os ajustes que você tem agora pelos que a versão da App Store salvou.";
+"Restore" = "Restaurar";
+"Settings restored: %d" = "Ajustes restaurados: %d";
