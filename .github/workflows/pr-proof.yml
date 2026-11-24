@@ -1,0 +1,47 @@
+name: PR proof
+
+# A pull request that changes what users see must show proof on screen. The rule and the list
+# of UI paths live in scripts/pr-proof-check.sh; CONTRIBUTING.md explains it to contributors.
+#
+# Safe for fork pull requests: pull_request (never pull_request_target), read-only token, no
+# secrets. The pull request body is never put on a command line by this file: the job passes
+# only the PR number through env and reads the body with gh.
+on:
+  pull_request:
+    branches: [develop]
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: pr-proof-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  proof:
+    name: PR proof
+    # Public repo, so a hosted Linux runner is free. Explicit image, never *-latest.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check for UI proof
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          gh pr view "$PR" --json body,baseRefName,author > "$work/pr.json"
+          # All changed files, paged: gh pr view --json files stops at a fixed count.
+          gh api "repos/$GH_REPO/pulls/$PR/files" --paginate --jq '.[].filename' > "$work/files.txt"
+          jq -r '.body // ""' "$work/pr.json" > "$work/body.md"
+          args=(--body "$work/body.md" --files "$work/files.txt" --base "$(jq -r '.baseRefName' "$work/pr.json")" --author "$(jq -r '.author.login // ""' "$work/pr.json")")
+          if [ "$(jq -r '.author.is_bot // false' "$work/pr.json")" = true ]; then args+=(--bot); fi
+          bash scripts/pr-proof-check.sh "${args[@]}"
