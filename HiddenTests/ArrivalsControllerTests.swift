@@ -28,6 +28,7 @@ final class ArrivalsControllerTests: XCTestCase {
     private var suite = ""
     private var defaults: UserDefaults!
     private var center: NotificationCenter!
+    private var wakeCenter: NotificationCenter!
     private var table: InMemorySectionMemory!
     private var catalog: MenuBarItemCatalog!
     private var choice: NewAppDefault = .ask
@@ -50,6 +51,7 @@ final class ArrivalsControllerTests: XCTestCase {
         suite = "ArrivalsControllerTests.\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suite)
         center = NotificationCenter()
+        wakeCenter = NotificationCenter()
         table = InMemorySectionMemory()
         choice = .ask
         pinsSections = true
@@ -71,7 +73,7 @@ final class ArrivalsControllerTests: XCTestCase {
     }
 
     private func makeController(place: ((MenuBarSection, String) -> Void)? = nil) -> ArrivalsController {
-        let controller = ArrivalsController(defaults: defaults, center: center, table: table,
+        let controller = ArrivalsController(defaults: defaults, center: center, wakeCenter: wakeCenter, table: table,
                                             choice: { [unowned self] in choice }, pinsSections: { [unowned self] in pinsSections },
                                             lookup: { [unowned self] in catalog.entry(for: $0) },
                                             place: place ?? { [unowned self] section, bundle in table.sections[bundle] = section },
@@ -251,6 +253,22 @@ final class ArrivalsControllerTests: XCTestCase {
 
         XCTAssertEqual(controller.pending, [])
         XCTAssertEqual(placed, [])
+    }
+
+    // Given a question that came due while the Mac slept, so its timer never fired
+    // When the Mac wakes
+    // Then the question lapses without waiting for the timer
+    func test_aQuestionThatCameDueInSleepLapsesOnWake() {
+        let controller = seededController()
+        read(["com.test.old", "com.test.new"])
+        choice = .hide
+
+        clock += ArrivalsInbox.expiry + 3600
+        XCTAssertEqual(controller.pending, ["com.test.new"])
+        wakeCenter.post(name: NSWorkspace.didWakeNotification, object: nil)
+
+        XCTAssertEqual(controller.pending, [])
+        XCTAssertEqual(table.sections["com.test.new"], .hidden)
     }
 
     // Given a question a day old

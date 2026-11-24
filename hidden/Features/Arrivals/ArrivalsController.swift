@@ -41,6 +41,7 @@ final class ArrivalsController {
 
     private let store: UserDefaultsArrivalsPending
     private let center: NotificationCenter
+    private let wakeCenter: NotificationCenter
     private let table: MenuBarSectionMemory
     private let choice: () -> NewAppDefault
     private let pinsSections: () -> Bool
@@ -51,8 +52,10 @@ final class ArrivalsController {
     // Cancels the timer that lapses the first waiting question.
     private var cancelLapse: (() -> Void)?
     private var observer: NSObjectProtocol?
+    private var wakeObserver: NSObjectProtocol?
 
-    // A one-shot timer on the main run loop. A Mac asleep at the due time fires it on wake.
+    // A one-shot timer on the main run loop. The run loop's clock may not count the
+    // time a Mac sleeps, so the controller also checks the lapse on wake.
     static let mainRunLoopSchedule: LapseScheduler = { delay, fire in
         let timer = Timer(timeInterval: delay, repeats: false) { _ in fire() }
         timer.tolerance = min(delay * 0.1, 60)
@@ -62,6 +65,7 @@ final class ArrivalsController {
 
     init(defaults: UserDefaults = AppDefaults.store,
          center: NotificationCenter = .default,
+         wakeCenter: NotificationCenter = NSWorkspace.shared.notificationCenter,
          table: MenuBarSectionMemory = UserDefaultsPinnedSections(defaults: AppDefaults.store),
          choice: @escaping () -> NewAppDefault = { Preferences.newAppDefaultSection },
          pinsSections: @escaping () -> Bool = { Preferences.pinnedSectionsEnabled },
@@ -71,6 +75,7 @@ final class ArrivalsController {
          schedule: @escaping LapseScheduler = ArrivalsController.mainRunLoopSchedule) {
         self.store = UserDefaultsArrivalsPending(defaults: defaults)
         self.center = center
+        self.wakeCenter = wakeCenter
         self.table = table
         self.choice = choice
         self.pinsSections = pinsSections
@@ -83,6 +88,7 @@ final class ArrivalsController {
 
     deinit {
         observer.map(center.removeObserver)
+        wakeObserver.map(wakeCenter.removeObserver)
         cancelLapse?()
     }
 
@@ -92,6 +98,10 @@ final class ArrivalsController {
         observer = center.addObserver(forName: .menuBarCatalogChanged, object: nil, queue: nil) { [weak self] note in
             let arrivals = note.userInfo?[MenuBarItemCatalog.arrivalsKey] as? [String] ?? []
             self?.catalogChanged(arrivals: arrivals)
+        }
+        // A timer set before a sleep may not count the sleep, so a wake re-checks every question.
+        wakeObserver = wakeCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: nil) { [weak self] _ in
+            self?.refresh()
         }
         refresh()
     }
@@ -115,7 +125,7 @@ final class ArrivalsController {
     }
 
     // Lapsed questions, and questions about apps the user removed from the Icons list.
-    // Runs at launch, when the prompt opens, and when the lapse timer fires.
+    // Runs at launch, when the prompt opens, when the lapse timer fires, and on wake.
     func refresh() {
         var next = inbox
         next.prune(keeping: table.sections)
