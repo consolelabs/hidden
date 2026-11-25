@@ -22,11 +22,13 @@ This file is force-added: `.gitignore` keeps `docs/implementation-notes/` local.
 
 `HiddenBarTests/ArrivalsInboxTests` (nextLapse, 2 cases) and `HiddenTests/ArrivalsControllerTests` (timer lapses a question, timer follows the oldest, answer cancels, lapse on wake, 4 cases). Run in the mac-ui VM with `-only-testing` for both classes. Red and green lines: see the PR body.
 
-## Proof (pending the VM)
+## Proof (negative control through CI)
 
-| Run | Production state | Command | Result |
+The mac-ui guest could not compile, so the proof ran on the repo's CI (`scripts/test.sh`, both schemes). Same tree, one production mutation: the arm call and the wake observer removed from `ArrivalsController`, `nextLapse` returning nil.
+
+| Run | Production state | Direct scheme | App Store scheme |
 |---|---|---|---|
-| red | arm call and wake observer removed, `nextLapse` returns nil | `xcodebuild test-without-building -scheme "Hidden Bar" -configuration Debug-Direct -only-testing:HiddenTests/ArrivalsControllerTests -only-testing:HiddenBarTests/ArrivalsInboxTests` in the mac-ui guest | pending |
-| green | as committed, merged with develop | same | pending |
+| red: https://github.com/consolelabs/hidden/actions/runs/45529107956 (commit 5993eca) | mutated | 833 passed, 5 failed | 527 passed, 1 failed |
+| green: https://github.com/consolelabs/hidden/actions/runs/45529924256 (commit 64cda1b, the revert) | as committed | 838 passed, 0 failed | 528 passed, 0 failed |
 
-Not run yet: the guest could not compile asset catalogs, so no build ran.
+The five failures in the direct scheme are the six new cases minus the one that expects nil: `nextLapse` oldest-question case (in both schemes) and the four `ArrivalsControllerTests` cases (timer lapses, timer follows the oldest, answer cancels, lapse on wake). CI prints counts, not test names, so the names are inferred from the counts and from what each mutation removes.
