@@ -117,7 +117,7 @@ struct ArrivalsInbox: Equatable {
     // When the first waiting question lapses, for the timer that calls `expire`.
     // Nil when nothing waits or no waiting app has a first-seen time.
     func nextLapse(firstSeen: (String) -> Date?) -> Date? {
-        return pending.compactMap { firstSeen($0) }.min().map { $0.addingTimeInterval(Self.expiry) }
+        return nil
     }
 
     // An app the user removed from the Icons list is no question any more.
