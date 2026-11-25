@@ -21,3 +21,12 @@ This file is force-added: `.gitignore` keeps `docs/implementation-notes/` local.
 ## Tests
 
 `HiddenBarTests/ArrivalsInboxTests` (nextLapse, 2 cases) and `HiddenTests/ArrivalsControllerTests` (timer lapses a question, timer follows the oldest, answer cancels, lapse on wake, 4 cases). Run in the mac-ui VM with `-only-testing` for both classes. Red and green lines: see the PR body.
+
+## Proof (pending the VM)
+
+| Run | Production state | Command | Result |
+|---|---|---|---|
+| red | arm call and wake observer removed, `nextLapse` returns nil | `xcodebuild test-without-building -scheme "Hidden Bar" -configuration Debug-Direct -only-testing:HiddenTests/ArrivalsControllerTests -only-testing:HiddenBarTests/ArrivalsInboxTests` in the mac-ui guest | pending |
+| green | as committed, merged with develop | same | pending |
+
+Not run yet: the guest could not compile asset catalogs, so no build ran.
