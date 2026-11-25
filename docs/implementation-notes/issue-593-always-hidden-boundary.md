@@ -25,11 +25,11 @@ Not proven: why AppKit reported a wrong separator frame. The report's log never 
 - No `return body(nil)` as for the arrow (#591): the misread lasted minutes, and a layout of nil would keep the bar from ever collapsing.
 - The check uses the injected `itemFrame` and the item's `isVisible` and `length`, not `MenuBarOrder.isItem` (it reads real windows and would bypass the test seam).
 - A first read with nothing remembered cannot keep a section: it reads as before and the next good read corrects it (`testAFirstLaunchMisreadHealsAtTheNextGoodRead`). The launch collapse does not wait for the separator as it does for the arrow.
-- Only with the always-hidden section on (`alwaysHiddenEnabled`). With the section off the frame is nil by design and nothing changes.
+- Only with the always-hidden section on and its item present: the controller removes the item when the section is turned off before the engine is told, and that read (nil frame) must read as a disabled section, not as a distrusted one. (`alwaysHiddenEnabled`). With the section off the frame is nil by design and nothing changes.
 - The check runs after the Debug override, so `always-hidden-boundary <x>` can force it (`always-hidden-boundary 6` reads the separator at the left edge).
 - No CHANGELOG line: the repo keeps no Unreleased section, and open PR #594 edits that file.
 - The unmerged branch `fix/unplaced-arrow-frame` has no diff against develop under `hidden/` or `HiddenBarTests/` (only a VM gate record under `docs/verification/`), so there is no file overlap with this change.
 
 ## Tests
 
-`AlwaysHiddenBoundaryTests` (HiddenBarTests/MenuBarEngineTests.swift), 11 tests. CI is the proof so far, in `docs/verification/always-hidden-boundary/results.md`: all green with the change, and 5 of them fail with the handling switched off.
+`AlwaysHiddenBoundaryTests` (HiddenBarTests/MenuBarEngineTests.swift), 12 tests. CI is the proof so far, in `docs/verification/always-hidden-boundary/results.md`: all green with the change, and 5 of them fail with the handling switched off.
