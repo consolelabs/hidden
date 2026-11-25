@@ -100,6 +100,9 @@ final class ArrivalsController {
             self?.catalogChanged(arrivals: arrivals)
         }
         // A timer set before a sleep may not count the sleep, so a wake re-checks every question.
+        wakeObserver = wakeCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: nil) { [weak self] _ in
+            self?.refresh()
+        }
         refresh()
     }
 
@@ -169,6 +172,7 @@ final class ArrivalsController {
         for placement in placements {
             place(placement.section, placement.bundle)
         }
+        armLapseTimer()
         if changed { center.post(name: .arrivalsChanged, object: self) }
     }
 
