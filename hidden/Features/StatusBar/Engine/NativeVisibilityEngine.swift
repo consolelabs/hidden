@@ -483,7 +483,7 @@ final class NativeVisibilityEngine: MenuBarEngine {
             let visibleText = separatorItem.map { String($0.isVisible) } ?? "none"
             let lengthText = separatorItem.map { String(describing: $0.length) } ?? "none"
             separatorNote = "always-hidden separator \(verdict) at \(frameText), item visible \(visibleText) length \(lengthText), taken out \(alwaysHiddenSeparatorTakenOut), arrow \(NSStringFromRect(boundary))"
-            if distrust != nil, false {
+            if distrust != nil {
                 alwaysHiddenFrame = nil
                 alwaysHiddenBoundaryKnown = false
             }
