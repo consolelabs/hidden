@@ -28,14 +28,14 @@ Source of the current state: develop after v1.13.4 (build 25, published 2026-11-
 
 ## Open after 1.13.4
 
-- **Direct build bundle id.** 1.13.0 shipped Release-Direct as `com.dwarvesv.minimalbar`, the same as the App Store build (shared prefs, the two cannot coexist). Confirm that stays, or move the direct build to `com.dwarvesv.minimalbar.direct`.
+- **Direct build bundle id.** 1.13.0 shipped Release-Direct as `com.dwarvesv.minimalbar`, the same as the App Store build (shared prefs, the two cannot coexist). **Ruled 2026-11-25 under the owner's delegation: it stays.** The App Store to direct migration (#541) and "Restore settings from the App Store version" (#585) both rely on the shared id; a move to `com.dwarvesv.minimalbar.direct` would need a new migration.
 - **Upgrade-path BTM check, #456: FAIL on 1.13.0, PASS with the fix (2026-11-16, mac-ui VM, macOS 27.2.1 26B131). The fix shipped in 1.13.1 (#517), widened in 1.13.2 (#553); #456 is closed (2026-11-19).** 1.13.0: after v1.9 with Start at login on, an upgrade and a login, `sfltool dumpbtm` still lists `4.com.dwarvesv.LauncherApplication` and every launch logs error 22 from `SMLoginItemSetEnabled`. The fix (#517) resets the main app item once instead; on the same ghosted 1.13.0 state its first launch logs `Unregister error: 0`, `Register error: 0`, status 1, and the legacy record is gone, still gone after a fresh login, one Hidden Bar under Open at Login. A fresh install (no old container) is marked done without touching login items. System Settings has no row of its own for the legacy record: it sits inside the "Hidden Bar" Allow in the Background row, which an SMAppService app has anyway. Release step 7 still owes one run on real hardware before the next release. Evidence: `docs/implementation-notes/upgrade-btm-check-proof/` (`btm-dumps.txt` first run, `retest.txt` the fix).
 - **Presentation keeps all system items.** Measure the clock and battery system item ids live,
   then narrow `NativeVisibilityEngine.presentationSystemItems` from all (0..<64) to those two.
 - **Slideshow automatic trigger.** Dropped for 1.13.0; needs a live Keynote or PowerPoint check
   (frontmost app plus a whole-display window it owns) before any code.
-- **Shortcuts action for presentation mode.** Needs App Intents; not built.
-- **Manual presentation mode does not survive a relaunch.** Decide whether it should.
+- **Shortcuts action for presentation mode.** Needs App Intents; not built. Build or drop is under "Decisions for Han".
+- **Manual presentation mode does not survive a relaunch.** **Ruled 2026-11-25 under the owner's delegation: it stays that way.** The spike chose it so a crash plus relaunch never re-hides on its own (`docs/implementation-notes/presentation-mode-spike.md`, fix list item 6).
 - **Arrivals dot under the new app's own icon.** Needs an overlay window over another app's
   status item; the arrow dot and the NEW tag carry the signal for now.
 - **Arrivals 24 hour lapse** is checked only at launch and when the prompt opens, not on a timer.
@@ -54,7 +54,7 @@ Source of the current state: develop after v1.13.4 (build 25, published 2026-11-
   v1.11.2 ships a notice that points to the direct build (`MacOS27Notice`). Still open:
   a user-picked list of visible apps instead of ⌘-drag (no Accessibility, still private
   API), or a public mechanism if Apple ships one.
-- **Live Activities on macOS 27.3, #469.** Closed as not planned (2026-11-18), as is the related #327 (2026-11-17). It needed info from the reporter (version, left or right of the arrow, shows on expand); our test Macs are on 27.2.
+- **Live Activities on macOS 27.3, #469.** Closed as not planned (2026-11-18), as is the related #327 (2026-11-17). We reproduced it on our test Macs: it is a macOS 27 limit, and the 1.13.1 workaround is Settings › Advanced "Pause hiding while macOS shows Now Playing, Focus and similar items". It reopens only if the reporter says the workaround fails. No owner step.
 
 ## Open reports and PRs (no fix merged)
 
@@ -63,11 +63,13 @@ Source of the current state: develop after v1.13.4 (build 25, published 2026-11-
 
 ## Needs hardware (not yet run)
 
+Han only: each check below needs a real Mac, a second display, a live slideshow or a signed update. The one exception is the memory soak, which an agent reads after it ends.
+
 - **#351 external monitor.** Closed, but the 26.4 external-display reproduction was never
   run. The multi-display rework is in #468; a real hot-plug and a second monitor are
   untested.
 - **24h memory dogfood, #361 / #386.** Instruments stress-cycling found no leak. The Air
-  now runs the v1.11.2 candidate; read `footprint -p "Hidden Bar"` after a day. #386 (memory grew with every audio or camera change) is closed: the leaked capture listeners were removed in #531, shipped in 1.13.1. #361 is closed as not planned. The hourly soak script is `scripts/memory-soak` (#522, heartbeat #542).
+  now runs the v1.11.2 candidate; read `footprint -p "Hidden Bar"` after a day. #386 (memory grew with every audio or camera change) is closed: the leaked capture listeners were removed in #531, shipped in 1.13.1. #361 is closed as not planned. The hourly soak script is `scripts/memory-soak` (#522, heartbeat #542). The 14-day soak on the Mini ends 2026-11-30; `scripts/memory-soak/summarize` then gives the answer, and no hands are needed for it.
 
 ## Unverified on hardware for v1.11.2
 
@@ -80,8 +82,10 @@ Source of the current state: develop after v1.13.4 (build 25, published 2026-11-
 
 ## Decisions for Han
 
-- **Old branches.** `feature/menubarDetection` (PR #115) and `feature/ghost-mode`
-  (PR #57) were kept per never-delete; both PRs are closed. Review or discard.
+- **Release 1.13.5.** Han only: pick the scope (#599 and #594 in or out), then run `docs/RUNBOOK.md` "Release" steps 1 to 7 (step 7 owes one run on real hardware) and `scripts/publish-release.sh --apply`.
+- **Shortcuts action for presentation mode (App Intents).** Han only: say build or drop. No doc recommends either.
+- **A user-picked list of visible apps for the App Store build** (see "macOS 27" above). Han only: say build or drop. It still needs a private API.
+- **Old branches: closed 2026-11-25, nothing to discard.** Neither `feature/menubarDetection` (PR #115, from a fork) nor `feature/ghost-mode` (PR #57) is a branch on origin. GitHub keeps the commits under each closed PR. Both ideas shipped under other names: "Rest the pointer on the menu bar" (`hoverToExpand`) and "Fade the arrow when icons are hidden" (`stealthExpandIconEnabled`).
 - **#242 permanent icon-loss repro.** Needs a throwaway defaults profile (a live repro
   risks losing real menu-bar icons). Required before the always-hidden decouple lands.
 
