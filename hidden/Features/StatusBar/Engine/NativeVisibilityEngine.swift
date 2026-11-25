@@ -471,7 +471,9 @@ final class NativeVisibilityEngine: MenuBarEngine {
         // and with pinned sections as dragged there.
         var alwaysHiddenBoundaryKnown = true
         var separatorNote = ""
-        if alwaysHiddenEnabled {
+        // No item means the section was turned off (its frame is nil by design); the
+        // controller removes the item without telling the engine until the next update.
+        if alwaysHiddenEnabled, items?.alwaysHiddenItem != nil {
             let separatorItem = items?.alwaysHiddenItem
             let inBar = separatorItem != nil && !alwaysHiddenSeparatorTakenOut
             let distrust = Self.alwaysHiddenSeparatorDistrust(frame: alwaysHiddenFrame, isInBar: inBar, arrow: boundary,

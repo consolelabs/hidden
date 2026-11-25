@@ -1124,6 +1124,19 @@ final class AlwaysHiddenBoundaryTests: XCTestCase {
         XCTAssertEqual(table.sections["com.always"], .alwaysHidden)
     }
 
+    // Given the always-hidden section turned off: the item is removed before the engine hears of it
+    // When the next read finds no separator
+    // Then nothing is kept always hidden: the apps left of the arrow are in the hidden section
+    func testAnAlwaysHiddenSectionTurnedOffReadsEverythingLeftOfTheArrowAsHidden() {
+        pins = false
+        observed.sections = ["com.always": .alwaysHidden, "com.hidden": .hidden, "com.visible": .visible]
+        let engine = makeEngine()
+        items.alwaysHiddenItem = nil
+        collapse(engine)
+        XCTAssertEqual(observed.sections["com.always"], .hidden)
+        XCTAssertEqual(expandedBundles(engine), [own, "com.always", "com.hidden", "com.visible"])
+    }
+
     func testASeparatorOnAnotherDisplayThanTheArrowIsNotABoundary() {
         let twoDisplays = MenuBarDisplay.displays(screenFrames: [CGRect(x: 0, y: 0, width: 1600, height: 900),
                                                                   CGRect(x: -1600, y: 0, width: 1600, height: 900)])
