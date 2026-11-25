@@ -237,6 +237,22 @@ final class ArrivalsInboxTests: XCTestCase {
         XCTAssertEqual(inbox.pending, ["com.a"])
     }
 
+    // Given several waiting questions seen at different times
+    // Then the next lapse is a day after the oldest
+    func test_nextLapseIsADayAfterTheOldestQuestion() {
+        let inbox = ArrivalsInbox(pending: ["com.a", "com.b"])
+        let seen: [String: Date] = ["com.a": t0 + 600, "com.b": t0]
+
+        XCTAssertEqual(inbox.nextLapse(firstSeen: { seen[$0] }), t0 + ArrivalsInbox.expiry)
+    }
+
+    // Given nothing waiting, or a waiting app whose first-seen time is unknown
+    // Then no lapse is due
+    func test_nextLapseIsNilWithNoDatedQuestion() {
+        XCTAssertNil(ArrivalsInbox().nextLapse(firstSeen: { _ in self.t0 }))
+        XCTAssertNil(ArrivalsInbox(pending: ["com.a"]).nextLapse(firstSeen: { _ in nil }))
+    }
+
     // MARK: storage
 
     // Given the queue written under `arrivalsPending`
