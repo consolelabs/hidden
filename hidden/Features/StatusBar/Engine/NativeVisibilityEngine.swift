@@ -138,6 +138,10 @@ final class NativeVisibilityEngine: MenuBarEngine {
 
     private var alwaysHiddenEnabled = false
     private var alwaysHiddenSeparatorHidden = false
+    // Set by `setSeparatorsVisible`, the only place that takes the always-hidden
+    // separator out of the bar and puts it back. A clock lift or a failed
+    // activation can end with no restriction held and the separator still out.
+    private var alwaysHiddenSeparatorTakenOut = false
 
     // The one app the palette lets show, with the apps the held restriction
     // allowed before that.
@@ -461,6 +465,31 @@ final class NativeVisibilityEngine: MenuBarEngine {
             return body(nil)
         }
         let isLTR = self.isLTR()
+        // The always-hidden boundary comes from the separator's frame, which AppKit
+        // can report wrongly while the item is out of the bar or just put back.
+        // Read from such a frame, every always-hidden app would count as hidden,
+        // and with pinned sections as dragged there.
+        var alwaysHiddenBoundaryKnown = true
+        var separatorNote = ""
+        // No item means the section was turned off (its frame is nil by design); the
+        // controller removes the item without telling the engine until the next update.
+        if alwaysHiddenEnabled, items?.alwaysHiddenItem != nil {
+            let separatorItem = items?.alwaysHiddenItem
+            let inBar = separatorItem != nil && !alwaysHiddenSeparatorTakenOut
+            let distrust = Self.alwaysHiddenSeparatorDistrust(frame: alwaysHiddenFrame, isInBar: inBar, arrow: boundary,
+                                                              displays: displays(), isLTR: isLTR)
+            // On every read, so a report shows the frame a wrong read came from
+            // even when it passed the check.
+            let verdict = distrust.map { "NOT trusted: " + $0 } ?? "trusted"
+            let frameText = alwaysHiddenFrame.map { NSStringFromRect($0) } ?? "none"
+            let visibleText = separatorItem.map { String($0.isVisible) } ?? "none"
+            let lengthText = separatorItem.map { String(describing: $0.length) } ?? "none"
+            separatorNote = "always-hidden separator \(verdict) at \(frameText), item visible \(visibleText) length \(lengthText), taken out \(alwaysHiddenSeparatorTakenOut), arrow \(NSStringFromRect(boundary))"
+            if distrust != nil {
+                alwaysHiddenFrame = nil
+                alwaysHiddenBoundaryKnown = false
+            }
+        }
         generation += 1
         let generation = self.generation
         inventory.snapshot { [weak self] inventory in
@@ -479,6 +508,10 @@ final class NativeVisibilityEngine: MenuBarEngine {
                                                        displays: displays,
                                                        isLTR: isLTR,
                                                        excludingBundle: self.ownBundleIdentifier)
+            if !alwaysHiddenBoundaryKnown {
+                layout.sections = MenuBarLayoutResolver.keepingAlwaysHidden(layout.sections,
+                                                                            remembered: self.sectionMemory.sections)
+            }
             if layout.isIncomplete {
                 if let complete = self.lastCompleteLayout {
                     layout = layout.fillingIn(from: complete)
@@ -514,7 +547,8 @@ final class NativeVisibilityEngine: MenuBarEngine {
                 // saved section wins; unknown apps stay visible.
                 layout.sections[bundle] = self.rememberedSection(of: bundle)
             }
-            NSLog("NativeVisibility: arrow at x=\(boundary.midX); visible \(layout.bundles(in: [.visible])), hidden \(layout.bundles(in: [.hidden])), always hidden \(layout.bundles(in: [.alwaysHidden]))")
+            let logSuffix = separatorNote.isEmpty ? "" : "; \(separatorNote), read incomplete \(layout.isIncomplete)"
+            NSLog("NativeVisibility: arrow at x=\(boundary.midX); visible \(layout.bundles(in: [.visible])), hidden \(layout.bundles(in: [.hidden])), always hidden \(layout.bundles(in: [.alwaysHidden]))\(logSuffix)")
             if !layout.unnameableVisibleItems.isEmpty || !layout.unprovenVisibleSystemItems.isEmpty {
                 NSLog("NativeVisibility: visible without a bundle id \(layout.unnameableVisibleItems); visible system extras to check \(layout.unprovenVisibleSystemItems)")
             }
@@ -584,6 +618,7 @@ final class NativeVisibilityEngine: MenuBarEngine {
     // The always-hidden separator is taken out of the bar while its section is
     // hidden; a zero-width item would still be there and clickable.
     private func setSeparatorsVisible(_ visible: Bool) {
+        alwaysHiddenSeparatorTakenOut = !visible
         items?.separatorItem.isVisible = false
         let shown = visible && alwaysHiddenEnabled
         items?.alwaysHiddenItem?.length = shown ? expandedLength : 0
@@ -616,6 +651,27 @@ final class NativeVisibilityEngine: MenuBarEngine {
             return true
         }
         return frame.minX >= leftEdge + max(frame.width, 1)
+    }
+
+    // Why the always-hidden separator's frame cannot place the always-hidden
+    // boundary; nil when it can. It must be in the bar, on a display, placed like
+    // the arrow, and on the hidden side of the arrow.
+    static func alwaysHiddenSeparatorDistrust(frame: CGRect?, isInBar: Bool, arrow: CGRect,
+                                              displays: [MenuBarDisplay], isLTR: Bool) -> String? {
+        guard let frame = frame else { return "no frame" }
+        guard isInBar else { return "the item is not in the bar" }
+        if !displays.isEmpty, MenuBarDisplay.containing(appKitFrame: frame, in: displays) == nil {
+            return "on no display"
+        }
+        guard isPlaced(arrow: frame, displays: displays) else { return "not placed in the menu bar yet" }
+        // Frames on two displays do not compare: the arrow's display is the one read from.
+        if let arrowDisplay = MenuBarDisplay.containing(appKitFrame: arrow, in: displays),
+           MenuBarDisplay.containing(appKitFrame: frame, in: displays) != arrowDisplay {
+            return "on another display than the arrow"
+        }
+        let towardHiddenSide = isLTR ? arrow.midX - frame.midX : frame.midX - arrow.midX
+        guard towardHiddenSide > 0 else { return "not on the hidden side of the arrow" }
+        return nil
     }
 
     var isAlwaysHiddenSeparatorPlaced: Bool {

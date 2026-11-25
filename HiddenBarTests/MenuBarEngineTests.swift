@@ -935,6 +935,245 @@ final class UnplacedArrowTests: XCTestCase {
     }
 }
 
+final class AlwaysHiddenBoundaryTests: XCTestCase {
+    private let own = "com.dwarvesv.minimalbar"
+    // midX 16: macOS has not put the always-hidden separator in the bar yet.
+    private let atLeftEdge = CGRect(x: 6, y: 0, width: 20, height: 24)
+    private var alwaysHiddenFrame: CGRect!
+    private var items: FakeItems!
+    private var inventory: FakeInventory!
+    private var visibility: FakeVisibility!
+    private var observed: InMemorySectionMemory!
+    private var table: InMemorySectionMemory!
+    private var pins = true
+    private var settled = 0
+
+    override func setUp() {
+        super.setUp()
+        alwaysHiddenFrame = alwaysHiddenSeparator
+        items = FakeItems()
+        inventory = FakeInventory()
+        inventory.items = [item("com.always", x: 900), item("com.hidden", x: 1100), item("com.visible", x: 1400)]
+        visibility = FakeVisibility()
+        observed = InMemorySectionMemory()
+        table = InMemorySectionMemory()
+        pins = true
+        settled = 0
+    }
+
+    // `revealed: false` leaves the engine as a fresh one, so the test's first
+    // engine call is the one under test.
+    private func makeEngine(revealed: Bool = true) -> NativeVisibilityEngine {
+        let items = self.items!
+        let engine = NativeVisibilityEngine(items: items, inventory: inventory, visibility: visibility, clock: FakeClock(),
+                                            ownBundleIdentifier: own,
+                                            itemFrame: { [unowned self] in $0 === items.toggleItem ? separator : alwaysHiddenFrame },
+                                            displays: { [mainDisplay] },
+                                            isLTR: { true },
+                                            sectionMemory: observed,
+                                            pinnedSections: table,
+                                            pinsSections: { [unowned self] in pins })
+        if revealed {
+            engine.updateAlwaysHiddenSection(enabled: true, separatorHidden: false)
+        }
+        return engine
+    }
+
+    private func succeedPending() {
+        while settled < visibility.requests.count {
+            visibility.succeed(settled)
+            settled += 1
+        }
+    }
+
+    private func collapse(_ engine: NativeVisibilityEngine) {
+        engine.collapse { _ in }
+        succeedPending()
+    }
+
+    // The bar the user sees after a collapse and an expand with the always-hidden
+    // section hidden: the apps the expanded restriction allows.
+    private func expandedBundles(_ engine: NativeVisibilityEngine) -> [String]? {
+        engine.updateAlwaysHiddenSection(enabled: true, separatorHidden: true)
+        engine.expand()
+        succeedPending()
+        return visibility.requests.last?.bundles
+    }
+
+    // Given pinned sections, with six apps always hidden
+    // When a read finds the always-hidden separator at the display's left edge
+    // Then the apps stay always hidden and the next expanded bar does not show them
+    func testAnUnplacedSeparatorDoesNotMoveAlwaysHiddenAppsToHidden() {
+        let pinned: [String: MenuBarSection] = ["com.always": .alwaysHidden, "com.hidden": .hidden, "com.visible": .visible]
+        observed.sections = pinned
+        table.sections = pinned
+        let engine = makeEngine()
+        alwaysHiddenFrame = atLeftEdge
+        collapse(engine)
+        XCTAssertEqual(table.sections["com.always"], .alwaysHidden)
+        XCTAssertEqual(observed.sections["com.always"], .alwaysHidden, "the read did not decide the always-hidden boundary")
+        XCTAssertEqual(expandedBundles(engine), [own, "com.hidden", "com.visible"])
+    }
+
+    // Given the same bad read and then a good one
+    // When an app was pinned hidden in Settings although it sits left of the separator
+    // Then the pin survives both reads: the good read is not taken for a drag
+    func testAPinSetInSettingsSurvivesAMisreadSeparator() {
+        observed.sections = ["com.always": .alwaysHidden, "com.visible": .visible]
+        table.sections = ["com.always": .hidden, "com.visible": .visible]
+        let engine = makeEngine()
+        alwaysHiddenFrame = atLeftEdge
+        collapse(engine)
+        engine.expand()
+        alwaysHiddenFrame = alwaysHiddenSeparator
+        collapse(engine)
+        XCTAssertEqual(table.sections["com.always"], .hidden)
+    }
+
+    // Given pinned sections off, an app last read always hidden
+    // When a read finds the separator at the left edge
+    // Then the remembered split stays and the next expanded bar does not show the app
+    func testWithoutPinsAMisreadSeparatorKeepsTheRememberedSplit() {
+        pins = false
+        observed.sections = ["com.always": .alwaysHidden, "com.hidden": .hidden, "com.visible": .visible]
+        let engine = makeEngine()
+        alwaysHiddenFrame = atLeftEdge
+        collapse(engine)
+        XCTAssertEqual(observed.sections["com.always"], .alwaysHidden)
+        XCTAssertEqual(expandedBundles(engine), [own, "com.hidden", "com.visible"])
+    }
+
+    // Given a separator the bar reports where the user put it
+    // When an app is dragged from always hidden to hidden, and across the arrow
+    // Then both moves are recorded: only a boundary that cannot be read is skipped
+    func testAReadableSeparatorStillRecordsDrags() {
+        let pinned: [String: MenuBarSection] = ["com.always": .alwaysHidden, "com.hidden": .hidden, "com.visible": .visible]
+        observed.sections = pinned
+        table.sections = pinned
+        let engine = makeEngine()
+        inventory.items = [item("com.always", x: 1100), item("com.hidden", x: 1450), item("com.visible", x: 1400)]
+        collapse(engine)
+        XCTAssertEqual(table.sections["com.always"], .hidden)
+        XCTAssertEqual(table.sections["com.hidden"], .visible)
+    }
+
+    // Given the "hide separators" setting, a fresh engine and a separator in the bar
+    // When the first read is the expanded bar's, with no section remembered yet
+    // Then the separator is the boundary: the always-hidden app stays out of the expanded list
+    func testASeparatorInTheBarIsTrustedOnTheFirstReadWithSeparatorsHidden() {
+        let engine = makeEngine(revealed: false)
+        engine.updateAlwaysHiddenSection(enabled: true, separatorHidden: true)
+        succeedPending()
+        XCTAssertEqual(visibility.requests.last?.bundles, [own, "com.hidden", "com.visible"])
+        XCTAssertEqual(observed.sections["com.always"], .alwaysHidden)
+    }
+
+    // Given the separator taken out of the bar and a collapse whose activation then fails,
+    // which leaves no restriction held and the separator still out
+    // When the next collapse reads a frame that looks fine but cannot be a boundary
+    // Then it is not one: nobody moves between hidden and always hidden
+    func testASeparatorTakenOutOfTheBarIsNotABoundaryAfterAFailedCollapse() {
+        let pinned: [String: MenuBarSection] = ["com.always": .alwaysHidden, "com.hidden": .hidden, "com.visible": .visible]
+        observed.sections = pinned
+        table.sections = pinned
+        let engine = makeEngine()
+        engine.updateAlwaysHiddenSection(enabled: true, separatorHidden: true)
+        succeedPending()
+        engine.collapse { _ in }
+        visibility.fail(visibility.requests.count - 1)
+        settled = visibility.requests.count
+        alwaysHiddenFrame = CGRect(x: 1150, y: 0, width: 20, height: 24)
+        collapse(engine)
+        XCTAssertEqual(table.sections["com.hidden"], .hidden, "a frame above this app is not a boundary while the item is out")
+        XCTAssertEqual(table.sections["com.always"], .alwaysHidden)
+    }
+
+    // Given a read that finds the separator at the left edge, with two real moves meanwhile
+    // When the user dragged an app across the arrow and another from always hidden to hidden
+    // Then the first counts at once, the second when a read has a boundary, and it does not flip back
+    func testADragDuringAMisreadIsRecordedWhenTheBoundaryReturns() {
+        let pinned: [String: MenuBarSection] = ["com.always": .alwaysHidden, "com.hidden": .hidden, "com.visible": .visible]
+        observed.sections = pinned
+        table.sections = pinned
+        let engine = makeEngine()
+        inventory.items = [item("com.always", x: 1100), item("com.hidden", x: 1450), item("com.visible", x: 1400)]
+        alwaysHiddenFrame = atLeftEdge
+        collapse(engine)
+        XCTAssertEqual(table.sections["com.hidden"], .visible, "a move across the arrow counts")
+        XCTAssertEqual(table.sections["com.always"], .alwaysHidden, "hidden or always hidden is not known yet")
+        engine.expand()
+        alwaysHiddenFrame = alwaysHiddenSeparator
+        collapse(engine)
+        XCTAssertEqual(table.sections["com.always"], .hidden)
+        engine.expand()
+        collapse(engine)
+        XCTAssertEqual(table.sections["com.always"], .hidden, "no flip back on the next read")
+    }
+
+    // Given a first launch with nothing remembered, so there is no section to keep
+    // When the first read has no boundary and the next one has
+    // Then the first reads as before (hidden) and the next puts the app back in always hidden
+    func testAFirstLaunchMisreadHealsAtTheNextGoodRead() {
+        let engine = makeEngine()
+        alwaysHiddenFrame = atLeftEdge
+        collapse(engine)
+        XCTAssertEqual(table.sections["com.always"], .hidden)
+        engine.expand()
+        alwaysHiddenFrame = alwaysHiddenSeparator
+        collapse(engine)
+        XCTAssertEqual(table.sections["com.always"], .alwaysHidden)
+    }
+
+    // Given the always-hidden section turned off: the item is removed before the engine hears of it
+    // When the next read finds no separator
+    // Then nothing is kept always hidden: the apps left of the arrow are in the hidden section
+    func testAnAlwaysHiddenSectionTurnedOffReadsEverythingLeftOfTheArrowAsHidden() {
+        pins = false
+        observed.sections = ["com.always": .alwaysHidden, "com.hidden": .hidden, "com.visible": .visible]
+        let engine = makeEngine()
+        items.alwaysHiddenItem = nil
+        collapse(engine)
+        XCTAssertEqual(observed.sections["com.always"], .hidden)
+        XCTAssertEqual(expandedBundles(engine), [own, "com.always", "com.hidden", "com.visible"])
+    }
+
+    func testASeparatorOnAnotherDisplayThanTheArrowIsNotABoundary() {
+        let twoDisplays = MenuBarDisplay.displays(screenFrames: [CGRect(x: 0, y: 0, width: 1600, height: 900),
+                                                                  CGRect(x: -1600, y: 0, width: 1600, height: 900)])
+        let arrowOnPrimary = CGRect(x: 1000, y: 876, width: 20, height: 24)
+        func distrust(_ frame: CGRect) -> String? {
+            return NativeVisibilityEngine.alwaysHiddenSeparatorDistrust(frame: frame, isInBar: true, arrow: arrowOnPrimary,
+                                                                        displays: twoDisplays, isLTR: true)
+        }
+        XCTAssertNil(distrust(CGRect(x: 700, y: 876, width: 20, height: 24)), "same display, hidden side")
+        XCTAssertNotNil(distrust(CGRect(x: -300, y: 876, width: 20, height: 24)), "left of the arrow only in raw coordinates")
+    }
+
+    func testOnlyAPlacedSeparatorOnTheHiddenSideOfTheArrowIsABoundary() {
+        func distrust(_ frame: CGRect?, inBar: Bool = true, arrow: CGRect = separator, isLTR: Bool = true) -> String? {
+            return NativeVisibilityEngine.alwaysHiddenSeparatorDistrust(frame: frame, isInBar: inBar, arrow: arrow,
+                                                                        displays: [mainDisplay], isLTR: isLTR)
+        }
+        XCTAssertNil(distrust(alwaysHiddenSeparator))
+        XCTAssertNotNil(distrust(nil), "no frame")
+        XCTAssertNotNil(distrust(alwaysHiddenSeparator, inBar: false), "taken out of the bar")
+        XCTAssertNotNil(distrust(atLeftEdge), "not placed yet")
+        XCTAssertNotNil(distrust(CGRect(x: 3000, y: 0, width: 20, height: 24)), "on no display")
+        XCTAssertNotNil(distrust(CGRect(x: 1500, y: 0, width: 20, height: 24)), "right of the arrow")
+        // Right to left, the hidden side is right of the arrow.
+        let rtlArrow = CGRect(x: 300, y: 0, width: 20, height: 24)
+        XCTAssertNil(distrust(alwaysHiddenSeparator, arrow: rtlArrow, isLTR: false))
+        XCTAssertNotNil(distrust(alwaysHiddenSeparator, isLTR: false), "left of the arrow, right to left")
+    }
+
+    func testOnlyHiddenAppsRememberedAlwaysHiddenKeepThatSection() {
+        let read: [String: MenuBarSection] = ["a": .hidden, "b": .hidden, "c": .visible, "d": .alwaysHidden, "e": .hidden]
+        let remembered: [String: MenuBarSection] = ["a": .alwaysHidden, "b": .hidden, "c": .alwaysHidden, "d": .hidden]
+        XCTAssertEqual(MenuBarLayoutResolver.keepingAlwaysHidden(read, remembered: remembered),
+                       ["a": .alwaysHidden, "b": .hidden, "c": .visible, "d": .alwaysHidden, "e": .hidden])
+    }
+}
+
 final class UnkeepableItemsOptInTests: XCTestCase {
     private func collapse(_ inventoryItems: [MenuBarInventoryItem], optIn: Bool) -> (requests: Int, result: CollapseResult?) {
         let items = FakeItems()

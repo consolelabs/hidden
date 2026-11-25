@@ -1,0 +1,26 @@
+# Always-hidden boundary fix: proof
+
+Unit proof is from CI (GitHub runners, both schemes), because the mac-ui guest was down. The real menu bar gate ran once, on head 7432add; see "VM gate" below.
+
+| Run | Head | What it was | Result |
+|---|---|---|---|
+| [45526581286](https://github.com/consolelabs/hidden/actions/runs/45526581286) | 6d35cd8 | first version of the fix | Direct 833 passed, 5 failed; App Store 5 failed. The 5 were existing tests: a fresh read distrusted a good frame because the fake item did not report `isVisible`. A regression in the change, not a negative control |
+| [45529170913](https://github.com/consolelabs/hidden/actions/runs/45529170913) | 8557e6f | the fix, with the in-bar record, the display check, the logging and 11 tests in `AlwaysHiddenBoundaryTests` | Direct 843 passed, 0 failed; App Store 537 passed, 0 failed |
+| [45529950255](https://github.com/consolelabs/hidden/actions/runs/45529950255) | 8f5c029 | negative control: same tests, distrust handling switched off (`if distrust != nil, false`), so the engine behaves as develop's | Direct 838 passed, 5 failed; App Store 532 passed, 5 failed. Failed: `testAnUnplacedSeparatorDoesNotMoveAlwaysHiddenAppsToHidden`, `testAPinSetInSettingsSurvivesAMisreadSeparator`, `testWithoutPinsAMisreadSeparatorKeepsTheRememberedSplit`, `testADragDuringAMisreadIsRecordedWhenTheBoundaryReturns`, `testASeparatorTakenOutOfTheBarIsNotABoundaryAfterAFailedCollapse` (Direct xcresult). Passed as designed: the helper tests, `testAReadableSeparatorStillRecordsDrags`, `testASeparatorInTheBarIsTrustedOnTheFirstReadWithSeparatorsHidden`, `testAFirstLaunchMisreadHealsAtTheNextGoodRead` |
+| [45530712658](https://github.com/consolelabs/hidden/actions/runs/45530712658) | 5c508e2 | the control reverted, docs added | Direct 843 passed, 0 failed; App Store 537 passed, 0 failed |
+| [45531871858](https://github.com/consolelabs/hidden/actions/runs/45531871858) | 7bdc8ca | adds the nil-item case: no separator item means the section is off, so no distrust (12 tests in the class); develop merged | Direct 850 passed, 0 failed; App Store 540 passed, 0 failed |
+
+What the unit tests show: a frame the engine cannot use as a boundary (left edge, separator out of the bar, another display) keeps always-hidden apps always hidden, a pin set in Settings survives a bad then a good read, a real drag is recorded when a boundary is back, and a good frame still records drags. They inject the frame; they do not show that AppKit ever reports a bad one.
+
+## VM gate (macOS 27.2.1 guest)
+
+Evidence folder `gate-pr599-2721-2026-11-25` on the maintainer test host. Build under test: head 7432add, Developer ID signed, CDHash 7caf1a71...6ab91. Control: released 1.13.4, CDHash 27796c72...b998. Release-Direct builds have no Debug hooks, so a misread could not be forced. Verdict: **guarded, no regression. Not fixed.** What the run shows and what it does not:
+
+1. The guard build logged 14 `always-hidden separator trusted` lines and 0 `NOT trusted` lines (so no false distrust either). All 14 came from launch reads: 1 after the swap, 1 after a Settings change, 10 in the relaunch cell, 2 in the drag cell.
+2. Ten arrow cycles kept SideNotes in always hidden on both builds. The control (1.13.4) showed no misread either, so this run cannot tell the guard from the old build by behavior.
+3. Plain arrow clicks log no `arrow at x=` line: with the always-hidden section on, expand and collapse both keep a restriction and reuse the cached layout, so a fresh read (and the new log suffix) happens only at launch. Option-click, which would reveal the whole bar and force a fresh read, could not be delivered over VNC (4 tries). The guard therefore ran only at launch reads, never on a click.
+4. No drag across the always-hidden separator was tested, because that zone could not be revealed. A drag across the arrow worked in both directions on the guard build (the table followed at the next read): see `drag-across-arrow.png` (before, after, and after the bar collapsed).
+5. Open observation, not a result: the table value of iStat Menus moved twice at launch reads marked `trusted` (2, then 1, then 0), with no `pinned sections changed` line before the first move. iStat runs outside `/Applications`, so macOS hides it whatever its section; it is not evidence. An icon was also reordered during the run (a Presentation Mode toggle by mistake), which moved the separator frame from x=392 to x=377. The control started with iStat at a different value (0), so the two cannot be compared. SideNotes, the app that discriminates, stayed in always hidden in every guard read except where the operator set it.
+6. The gate build was 7432add, one commit before the nil-item change (7bdc8ca). That change is covered by CI only (run 45531871858), not by this gate.
+
+Other checks on the guard build: the 10 relaunches each left SideNotes in always hidden and logged `trusted` with the separator in the bar (`item visible true length 20.0, taken out false`), with `read incomplete true` because the front app's menus overflowed the bar; plain auto-hide collapsed the bar after the pointer was parked (`arrow-expand-autohide.png`, expanded then auto-hidden). Not run: the Settings pin cell, the forced-misread variant, and Control Center holds. The claim stays "guarded"; the PR stays `Refs #593`.

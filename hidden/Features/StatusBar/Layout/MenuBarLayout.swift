@@ -415,6 +415,18 @@ enum MenuBarLayoutResolver {
         return frame.offsetBy(dx: dx, dy: 0)
     }
 
+    // Read with no always-hidden boundary, every app left of the arrow is hidden.
+    // An app last read always hidden keeps that section: only a read with a
+    // boundary can move an app between hidden and always hidden.
+    static func keepingAlwaysHidden(_ read: [String: MenuBarSection],
+                                    remembered: [String: MenuBarSection]) -> [String: MenuBarSection] {
+        var kept = read
+        for (bundle, section) in read where section == .hidden && remembered[bundle] == .alwaysHidden {
+            kept[bundle] = .alwaysHidden
+        }
+        return kept
+    }
+
     // Hidden system extras drop out of Accessibility, unlike apps' items. With
     // no system extra listed at all (the clock always is), Accessibility is not
     // answering, for one while the screen is locked: nothing counts as missing.
