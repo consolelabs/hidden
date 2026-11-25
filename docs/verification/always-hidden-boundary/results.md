@@ -13,4 +13,4 @@ What the unit tests show: a frame the engine cannot use as a boundary (left edge
 
 ## VM click gate (`hb-macos2721`)
 
-Not run. The plan is in the PR description. The kit builds `Release-Direct`, which has no Debug hooks, so a run on kit builds can show "guarded, no regression" (table never flips, the new log fields appear, standard checks pass) but cannot force the misread.
+Not run; it follows the review. The kit builds `Release-Direct`, which has no Debug hooks, so a run on kit builds can show "guarded, no regression" (table never flips, the new log fields appear, standard checks pass) but cannot force the misread.
