@@ -961,7 +961,9 @@ final class AlwaysHiddenBoundaryTests: XCTestCase {
         settled = 0
     }
 
-    private func makeEngine() -> NativeVisibilityEngine {
+    // `revealed: false` leaves the engine as a fresh one, so the test's first
+    // engine call is the one under test.
+    private func makeEngine(revealed: Bool = true) -> NativeVisibilityEngine {
         let items = self.items!
         let engine = NativeVisibilityEngine(items: items, inventory: inventory, visibility: visibility, clock: FakeClock(),
                                             ownBundleIdentifier: own,
@@ -971,7 +973,9 @@ final class AlwaysHiddenBoundaryTests: XCTestCase {
                                             sectionMemory: observed,
                                             pinnedSections: table,
                                             pinsSections: { [unowned self] in pins })
-        engine.updateAlwaysHiddenSection(enabled: true, separatorHidden: false)
+        if revealed {
+            engine.updateAlwaysHiddenSection(enabled: true, separatorHidden: false)
+        }
         return engine
     }
 
@@ -1051,6 +1055,85 @@ final class AlwaysHiddenBoundaryTests: XCTestCase {
         collapse(engine)
         XCTAssertEqual(table.sections["com.always"], .hidden)
         XCTAssertEqual(table.sections["com.hidden"], .visible)
+    }
+
+    // Given the "hide separators" setting, a fresh engine and a separator in the bar
+    // When the first read is the expanded bar's, with no section remembered yet
+    // Then the separator is the boundary: the always-hidden app stays out of the expanded list
+    func testASeparatorInTheBarIsTrustedOnTheFirstReadWithSeparatorsHidden() {
+        let engine = makeEngine(revealed: false)
+        engine.updateAlwaysHiddenSection(enabled: true, separatorHidden: true)
+        succeedPending()
+        XCTAssertEqual(visibility.requests.last?.bundles, [own, "com.hidden", "com.visible"])
+        XCTAssertEqual(observed.sections["com.always"], .alwaysHidden)
+    }
+
+    // Given the separator taken out of the bar and a collapse whose activation then fails,
+    // which leaves no restriction held and the separator still out
+    // When the next collapse reads a frame that looks fine but cannot be a boundary
+    // Then it is not one: nobody moves between hidden and always hidden
+    func testASeparatorTakenOutOfTheBarIsNotABoundaryAfterAFailedCollapse() {
+        let pinned: [String: MenuBarSection] = ["com.always": .alwaysHidden, "com.hidden": .hidden, "com.visible": .visible]
+        observed.sections = pinned
+        table.sections = pinned
+        let engine = makeEngine()
+        engine.updateAlwaysHiddenSection(enabled: true, separatorHidden: true)
+        succeedPending()
+        engine.collapse { _ in }
+        visibility.fail(visibility.requests.count - 1)
+        settled = visibility.requests.count
+        alwaysHiddenFrame = CGRect(x: 1150, y: 0, width: 20, height: 24)
+        collapse(engine)
+        XCTAssertEqual(table.sections["com.hidden"], .hidden, "a frame above this app is not a boundary while the item is out")
+        XCTAssertEqual(table.sections["com.always"], .alwaysHidden)
+    }
+
+    // Given a read that finds the separator at the left edge, with two real moves meanwhile
+    // When the user dragged an app across the arrow and another from always hidden to hidden
+    // Then the first counts at once, the second when a read has a boundary, and it does not flip back
+    func testADragDuringAMisreadIsRecordedWhenTheBoundaryReturns() {
+        let pinned: [String: MenuBarSection] = ["com.always": .alwaysHidden, "com.hidden": .hidden, "com.visible": .visible]
+        observed.sections = pinned
+        table.sections = pinned
+        let engine = makeEngine()
+        inventory.items = [item("com.always", x: 1100), item("com.hidden", x: 1450), item("com.visible", x: 1400)]
+        alwaysHiddenFrame = atLeftEdge
+        collapse(engine)
+        XCTAssertEqual(table.sections["com.hidden"], .visible, "a move across the arrow counts")
+        XCTAssertEqual(table.sections["com.always"], .alwaysHidden, "hidden or always hidden is not known yet")
+        engine.expand()
+        alwaysHiddenFrame = alwaysHiddenSeparator
+        collapse(engine)
+        XCTAssertEqual(table.sections["com.always"], .hidden)
+        engine.expand()
+        collapse(engine)
+        XCTAssertEqual(table.sections["com.always"], .hidden, "no flip back on the next read")
+    }
+
+    // Given a first launch with nothing remembered, so there is no section to keep
+    // When the first read has no boundary and the next one has
+    // Then the first reads as before (hidden) and the next puts the app back in always hidden
+    func testAFirstLaunchMisreadHealsAtTheNextGoodRead() {
+        let engine = makeEngine()
+        alwaysHiddenFrame = atLeftEdge
+        collapse(engine)
+        XCTAssertEqual(table.sections["com.always"], .hidden)
+        engine.expand()
+        alwaysHiddenFrame = alwaysHiddenSeparator
+        collapse(engine)
+        XCTAssertEqual(table.sections["com.always"], .alwaysHidden)
+    }
+
+    func testASeparatorOnAnotherDisplayThanTheArrowIsNotABoundary() {
+        let twoDisplays = MenuBarDisplay.displays(screenFrames: [CGRect(x: 0, y: 0, width: 1600, height: 900),
+                                                                  CGRect(x: -1600, y: 0, width: 1600, height: 900)])
+        let arrowOnPrimary = CGRect(x: 1000, y: 876, width: 20, height: 24)
+        func distrust(_ frame: CGRect) -> String? {
+            return NativeVisibilityEngine.alwaysHiddenSeparatorDistrust(frame: frame, isInBar: true, arrow: arrowOnPrimary,
+                                                                        displays: twoDisplays, isLTR: true)
+        }
+        XCTAssertNil(distrust(CGRect(x: 700, y: 876, width: 20, height: 24)), "same display, hidden side")
+        XCTAssertNotNil(distrust(CGRect(x: -300, y: 876, width: 20, height: 24)), "left of the arrow only in raw coordinates")
     }
 
     func testOnlyAPlacedSeparatorOnTheHiddenSideOfTheArrowIsABoundary() {
