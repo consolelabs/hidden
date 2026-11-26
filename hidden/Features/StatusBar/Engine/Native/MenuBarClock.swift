@@ -454,8 +454,9 @@ final class SystemMenuBarClock: MenuBarClockProviding {
         }
     }
 
-    // Keeps the Accessibility lookups to clicks in a menu bar.
-    private static func isInMenuBar(_ location: CGPoint) -> Bool {
+    // Keeps the Accessibility lookups to clicks in a menu bar. CoreGraphics
+    // coordinates (origin at the primary display's top left).
+    static func isInMenuBar(_ location: CGPoint) -> Bool {
         guard let primaryHeight = NSScreen.screens.first?.frame.maxY else { return false }
         return NSScreen.screens.contains { screen in
             let top = primaryHeight - screen.frame.maxY
@@ -547,6 +548,87 @@ final class SystemMenuBarClock: MenuBarClockProviding {
 
     private static func children(of element: AXUIElement) -> [AXUIElement] {
         return value(of: element, kAXChildrenAttribute) as? [AXUIElement] ?? []
+    }
+}
+
+// A ⌘-drag that rearranged the menu bar. Sections are otherwise read only on a
+// collapse from an unrestricted bar, which never comes while the always-hidden
+// section is held on expand, and which the auto-collapse takes once the pointer
+// has left the bar, when an auto-hidden menu bar is already gone. Right after a
+// drag the bar is on screen, so that is when the engine reads it.
+protocol MenuBarRearrangeWatching: AnyObject {
+    // Runs on the main queue once a ⌘-drag begun in a menu bar has ended and
+    // the bar has had a moment to settle. Nothing is watched while nil.
+    var onRearrange: (() -> Void)? { get set }
+}
+
+// The engine's default, so tests never watch the real mouse.
+final class NoRearrangeWatching: MenuBarRearrangeWatching {
+    var onRearrange: (() -> Void)?
+}
+
+final class CommandDragWatcher: MenuBarRearrangeWatching {
+    var onRearrange: (() -> Void)? {
+        didSet { updateMonitors() }
+    }
+
+    // macOS moves the icon on mouse-up and reflows the bar after it.
+    private let settleDelay: TimeInterval
+    private var monitors: [Any] = []
+    private var dragging = false
+    private var pending: DispatchWorkItem?
+
+    init(settleDelay: TimeInterval = 0.5) {
+        self.settleDelay = settleDelay
+    }
+
+    deinit {
+        monitors.forEach(NSEvent.removeMonitor)
+        pending?.cancel()
+    }
+
+    private func updateMonitors() {
+        if onRearrange != nil, monitors.isEmpty {
+            let mask: NSEvent.EventTypeMask = [.leftMouseDown, .leftMouseUp]
+            // Other apps' icons are global events; Hidden Bar's own arrow and
+            // separator are local ones.
+            if let global = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: { [weak self] in self?.handle($0) }) {
+                monitors.append(global)
+            }
+            if let local = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { [weak self] event in
+                self?.handle(event)
+                return event
+            }) {
+                monitors.append(local)
+            }
+        } else if onRearrange == nil, !monitors.isEmpty {
+            monitors.forEach(NSEvent.removeMonitor)
+            monitors = []
+            dragging = false
+            pending?.cancel()
+            pending = nil
+        }
+    }
+
+    private func handle(_ event: NSEvent) {
+        switch event.type {
+        case .leftMouseDown:
+            // ⌘ counts at the press only: the user may let go of it mid-drag.
+            guard let location = event.cgEvent?.location else { return }
+            dragging = event.modifierFlags.contains(.command) && SystemMenuBarClock.isInMenuBar(location)
+        case .leftMouseUp:
+            guard dragging else { return }
+            dragging = false
+            pending?.cancel()
+            let work = DispatchWorkItem { [weak self] in
+                self?.pending = nil
+                self?.onRearrange?()
+            }
+            pending = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + settleDelay, execute: work)
+        default:
+            break
+        }
     }
 }
 

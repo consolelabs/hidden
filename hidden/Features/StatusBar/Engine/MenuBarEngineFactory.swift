@@ -43,7 +43,8 @@ enum MenuBarEngineFactory {
                                                 pinnedSections: UserDefaultsPinnedSections(),
                                                 pinsSections: { Preferences.pinnedSectionsEnabled },
                                                 ignoredDrags: { UserDefaultsDragLocks().bundles },
-                                                agentLaunches: agentLaunches)
+                                                agentLaunches: agentLaunches,
+                                                rearrange: CommandDragWatcher())
             let catalog = MenuBarItemCatalog.shared
             engine.onUnrestrictedRead = { layout, inventory in
                 ArrivalsController.shared.noteInventory(inventory)

@@ -261,8 +261,10 @@ class StatusBarController: MenuBarItemProvider {
             native.expandBar = { [weak self] in self?.expandMenubar() }
             native.collapseBar = { [weak self] in self?.collapseMenuBar() }
             native.expandBarForCapture = { [weak self] in self?.expandMenubar(activatingApp: false) }
-            pinnedSectionsObserver = NotificationCenter.default.addObserver(forName: .pinnedSectionsChanged, object: nil, queue: .main) { [weak native] _ in
-                native?.pinnedSectionsDidChange()
+            pinnedSectionsObserver = NotificationCenter.default.addObserver(forName: .pinnedSectionsChanged, object: nil, queue: .main) { [weak native] note in
+                // The engine posts after a ⌘-drag, having applied it already.
+                guard let native = native, note.object as AnyObject? !== native else { return }
+                native.pinnedSectionsDidChange()
             }
             native.onUserChangedBar = { [weak self] in
                 #if HIDDENBAR_NATIVE_VISIBILITY

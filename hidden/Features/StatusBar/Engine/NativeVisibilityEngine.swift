@@ -39,7 +39,8 @@ import AppKit
 //   bar. An app that starts while something is hidden is not in the read, so it
 //   gets the section it was last read in (remembered across launches), or the
 //   visible one if it was never read, until that next read places it by where
-//   macOS put its icon.
+//   macOS put its icon. With pinned sections a ⌘-drag is also read as soon as
+//   it ends, from the apps the held restriction shows (`menuBarRearranged`).
 // - The restriction is assessment mode, which makes macOS ignore the clock, so
 //   Notification Center cannot open from it (#410). A click on the clock while
 //   collapsed expands the bar, presses the clock, and collapses again once the
@@ -163,6 +164,8 @@ final class NativeVisibilityEngine: MenuBarEngine {
     private let pinnedSections: MenuBarSectionMemory
     private let ignoredDrags: () -> Set<String>
     private let pinsSections: () -> Bool
+    // Reports a ⌘-drag in the menu bar, read at once (`menuBarRearranged`).
+    private let rearrange: MenuBarRearrangeWatching
 
     // Items right of the arrow that the allow-list cannot keep visible: an item
     // whose owner has no bundle id, or a system extra no system item id covers
@@ -201,9 +204,11 @@ final class NativeVisibilityEngine: MenuBarEngine {
          pinnedSections: MenuBarSectionMemory = InMemorySectionMemory(),
          pinsSections: @escaping () -> Bool = { false },
          ignoredDrags: @escaping () -> Set<String> = { [] },
-         agentLaunches: NotificationCenter? = nil) {
+         agentLaunches: NotificationCenter? = nil,
+         rearrange: MenuBarRearrangeWatching = NoRearrangeWatching()) {
         self.items = items
         self.ignoredDrags = ignoredDrags
+        self.rearrange = rearrange
         self.agentLaunches = agentLaunches
         self.pinnedSections = pinnedSections
         self.pinsSections = pinsSections
@@ -228,6 +233,9 @@ final class NativeVisibilityEngine: MenuBarEngine {
         observeLaunches()
         captureActivity.onChange = { [weak self] in
             self?.captureActivityDidChange()
+        }
+        rearrange.onRearrange = { [weak self] in
+            self?.menuBarRearranged()
         }
         // Quit lifts the restriction explicitly as well as by process exit.
         terminationObserver = (terminationNotifications, terminationNotifications.addObserver(
@@ -502,6 +510,25 @@ final class NativeVisibilityEngine: MenuBarEngine {
                 NSLog("NativeVisibility: the arrow at \(NSStringFromRect(boundary)) is on no display \(displays.map { NSStringFromRect($0.appKitFrame) })")
                 return body(nil)
             }
+            // Taken while the menu bar was auto-hidden, the read lists no app at
+            // all. Cached, it would leave every app out of the allow list until
+            // the next unrestricted read, which an always-hidden section held
+            // on expand never allows: a click on the arrow showed nothing. The
+            // last read stands in, and nothing is remembered from this one.
+            let menuBarHidden = self.inventory.menuBarWasHiddenAtLastSnapshot
+            if menuBarHidden, let previous = self.layout ?? self.lastCompleteLayout {
+                var kept = previous
+                if self.pinsSections() {
+                    let table = self.pinnedSections.sections
+                    for bundle in kept.sections.keys {
+                        if let pinned = table[bundle] { kept.sections[bundle] = pinned }
+                    }
+                }
+                let filled = self.fillRunningAppsTheReadMissed(&kept)
+                NSLog("NativeVisibility: the menu bar is hidden, so the read lists no app; keeping the last read (hidden \(kept.bundles(in: [.hidden])), always hidden \(kept.bundles(in: [.alwaysHidden])), filled in \(filled))")
+                self.layout = kept
+                return body(kept)
+            }
             var layout = MenuBarLayoutResolver.resolve(inventory: inventory,
                                                        separatorFrame: boundary,
                                                        alwaysHiddenSeparatorFrame: alwaysHiddenFrame,
@@ -517,7 +544,7 @@ final class NativeVisibilityEngine: MenuBarEngine {
                     layout = layout.fillingIn(from: complete)
                 }
                 NSLog("NativeVisibility: the active menu bar overflows; apps it does not list keep their last known section")
-            } else {
+            } else if !menuBarHidden {
                 self.lastCompleteLayout = layout
             }
             if self.pinsSections() {
@@ -534,8 +561,15 @@ final class NativeVisibilityEngine: MenuBarEngine {
             }
             self.launchedSinceRead.subtract(layout.sections.keys)
             // What the read listed, before apps that only started are filled in:
-            // those may have no menu-bar icon at all.
-            self.onUnrestrictedRead?(layout, inventory)
+            // those may have no menu-bar icon at all. A read from a hidden menu
+            // bar lists nothing worth recording.
+            if !menuBarHidden {
+                self.onUnrestrictedRead?(layout, inventory)
+            }
+            let filledIn = self.fillRunningAppsTheReadMissed(&layout)
+            if !filledIn.isEmpty {
+                NSLog("NativeVisibility: running apps the read did not list keep their saved section: \(filledIn)\(menuBarHidden ? " (the menu bar is hidden)" : "")")
+            }
             var missing = self.launchedSinceRead
             if layout.isIncomplete {
                 missing.formUnion(self.runningBundleIdentifiers())
@@ -945,9 +979,89 @@ final class NativeVisibilityEngine: MenuBarEngine {
         return sectionMemory.sections[bundle] ?? .visible
     }
 
+    // A running app the read did not list, although Hidden Bar knows its section
+    // (pinned, or where it was last read), keeps that section. An app is left
+    // out of a read when its items are not in Accessibility at that moment: the
+    // menu bar auto-hidden, or the app's icon not back yet after a launch or a
+    // relaunch of Hidden Bar. Without this it was out of the allow list until
+    // the next read, which an always-hidden section held on expand never
+    // allows: the arrow showed nothing. Apps Hidden Bar never saw are left
+    // out, as before. Returns the bundles filled in.
+    @discardableResult
+    private func fillRunningAppsTheReadMissed(_ layout: inout MenuBarLayout) -> [String] {
+        let known = pinsSections() ? pinnedSections.sections : sectionMemory.sections
+        var filled: [String] = []
+        for bundle in runningBundleIdentifiers() where layout.sections[bundle] == nil
+            && bundle != ownBundleIdentifier
+            && !MenuBarLayoutResolver.systemItemOwners.contains(bundle) {
+            guard let section = known[bundle] else { continue }
+            layout.sections[bundle] = section
+            filled.append(bundle)
+        }
+        return filled.sorted()
+    }
+
     // Preferences changed the pinned sections: apply them to the held
     // restriction at once. A collapse or expand in flight applies them when it
     // lands. Apps no read listed yet keep the section they were given.
+    // A ⌘-drag in the menu bar just ended, so the bar is on screen even when
+    // macOS auto-hides it. Pinned sections only: without them every collapse
+    // reads the positions anyway.
+    // - Nothing held: a full read, cached for the next collapse, which keeps it
+    //   when that collapse finds the menu bar hidden.
+    // - A restriction held (collapsed, or expanded with the always-hidden
+    //   section hidden): the apps it hides report stale frames, so only the
+    //   apps it shows are read. Those sit where the user just put them, left or
+    //   right of the arrow; the always-hidden separator is out of the bar then,
+    //   so that section is changed by Option-click and a drag, or in Settings.
+    func menuBarRearranged() {
+        guard pinsSections(), inventory.isAuthorized, state != .calibrating,
+              inFlightHold == nil, !holdsPresentationList else { return }
+        guard assertion != nil else {
+            guard state == .expanded else { return }
+            return withLayout { _ in }
+        }
+        guard generation == assertionGeneration,
+              let arrow = items?.toggleItem, let boundary = itemFrame(arrow),
+              Self.isPlaced(arrow: boundary, displays: displays()) else { return }
+        // An app the palette lifted shows only for now, wherever macOS put it.
+        let shown = Set(assertionBundles).subtracting(temporaryAllow.map { [$0.bundle] } ?? [])
+        let generation = self.generation
+        inventory.snapshot { [weak self] inventory in
+            guard let self = self, generation == self.generation, self.assertion != nil,
+                  Set(self.assertionBundles).isSuperset(of: shown) else { return }
+            guard !self.inventory.menuBarWasHiddenAtLastSnapshot else {
+                NSLog("NativeVisibility: the menu bar was hidden when the drag was read; sections unchanged")
+                return
+            }
+            let read = MenuBarLayoutResolver.resolve(inventory: inventory,
+                                                     separatorFrame: boundary,
+                                                     alwaysHiddenSeparatorFrame: nil,
+                                                     displays: self.displays(),
+                                                     isLTR: self.isLTR(),
+                                                     excludingBundle: self.ownBundleIdentifier)
+            let positions = read.sections.filter { shown.contains($0.key) }
+            guard !positions.isEmpty else { return }
+            var observed = self.sectionMemory.sections
+            var table = self.pinnedSections.sections
+            let before = table
+            _ = PinnedSectionResolver.resolve(read: positions,
+                                              launchedSinceRead: self.launchedSinceRead,
+                                              ignoringDrags: self.ignoredDrags(),
+                                              observed: &observed, table: &table)
+            self.sectionMemory.sections = observed
+            self.launchedSinceRead.subtract(positions.keys)
+            let changed = table.filter { before[$0.key] != $0.value }
+            guard !changed.isEmpty else { return }
+            NSLog("NativeVisibility: a ⌘-drag moved \(changed.keys.sorted().map { "\($0) to \(table[$0]!)" })")
+            self.pinnedSections.sections = table
+            self.pinnedSectionsDidChange()
+            // Settings › Icons and the catalog follow the table; the controller,
+            // which passes this notification on to the engine, skips its own.
+            NotificationCenter.default.post(name: .pinnedSectionsChanged, object: self)
+        }
+    }
+
     func pinnedSectionsDidChange() {
         guard pinsSections() else { return }
         let table = pinnedSections.sections

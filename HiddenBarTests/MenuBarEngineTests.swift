@@ -34,6 +34,8 @@ private final class FakeInventory: MenuBarInventoryProviding {
     var snapshots = 0
     // False: a read never comes back, as when an app never answers.
     var answers = true
+    // True: the read was taken while the menu bar was auto-hidden.
+    var menuBarWasHiddenAtLastSnapshot = false
 
     func requestAuthorization() {
         authorizationRequests += 1
@@ -121,6 +123,15 @@ private final class FakeCaptureActivity: CaptureActivityMonitoring {
     func set(_ active: Bool) {
         isActive = active
         onChange?()
+    }
+}
+
+// Stands in for the ⌘-drag watcher: the test ends a drag.
+private final class FakeRearrange: MenuBarRearrangeWatching {
+    var onRearrange: (() -> Void)?
+
+    func endDrag() {
+        onRearrange?()
     }
 }
 
@@ -2370,9 +2381,11 @@ final class PinnedSectionsTests: XCTestCase {
     private var table: InMemorySectionMemory!
     private var pins = true
     private var dragLocked: Set<String> = []
+    private var rearrange: FakeRearrange!
 
     override func setUp() {
         super.setUp()
+        rearrange = FakeRearrange()
         items = FakeItems()
         inventory = FakeInventory()
         inventory.items = [item("com.always", x: 900), item("com.hidden", x: 1100), item("com.visible", x: 1400)]
@@ -2393,7 +2406,75 @@ final class PinnedSectionsTests: XCTestCase {
                                       sectionMemory: observed,
                                       pinnedSections: table,
                                       pinsSections: { [unowned self] in pins },
-                                      ignoredDrags: { [unowned self] in dragLocked })
+                                      ignoredDrags: { [unowned self] in dragLocked },
+                                      rearrange: rearrange)
+    }
+
+    // Collapsed once, then expanded with the always-hidden section held.
+    private func expandedHoldingAlwaysHidden() -> NativeVisibilityEngine {
+        table.sections = ["com.always": .alwaysHidden]
+        let engine = makeEngine()
+        engine.updateAlwaysHiddenSection(enabled: true, separatorHidden: true)
+        collapse(engine)
+        engine.expand()
+        XCTAssertEqual(visibility.requests.last?.bundles, [own, "com.hidden", "com.visible"])
+        visibility.succeed(visibility.requests.count - 1)
+        return engine
+    }
+
+    // Given the always-hidden section held while expanded, so a collapse reads nothing
+    // When the user ⌘-drags a hidden app right of the arrow
+    // Then the drag is read when it ends, and the next collapse keeps the app visible
+    func testADragWhileTheAlwaysHiddenSectionIsHeldEditsTheTable() {
+        let engine = expandedHoldingAlwaysHidden()
+        move("com.hidden", to: 1450)
+        // A hidden app's frame is stale: it must not count as a drag.
+        move("com.always", to: 1500)
+        let reads = inventory.snapshots
+        rearrange.endDrag()
+        XCTAssertGreaterThan(inventory.snapshots, reads, "the drag is read")
+        XCTAssertEqual(table.sections["com.hidden"], .visible)
+        XCTAssertEqual(table.sections["com.always"], .alwaysHidden, "an app the restriction hides is not read")
+        XCTAssertEqual(collapse(engine), [own, "com.hidden", "com.visible"])
+    }
+
+    // Given a collapsed bar
+    // When the user ⌘-drags a visible app left of the arrow
+    // Then it hides at once
+    func testADragWhileCollapsedHidesTheApp() {
+        let engine = makeEngine()
+        XCTAssertEqual(collapse(engine), [own, "com.visible"])
+        move("com.visible", to: 1120)
+        rearrange.endDrag()
+        XCTAssertEqual(table.sections["com.visible"], .hidden)
+        XCTAssertEqual(visibility.requests.last?.bundles, [own])
+    }
+
+    // A read from an auto-hidden menu bar lists nothing; a drag-locked app keeps its section.
+    func testADragReadFromAHiddenMenuBarOrOfALockedAppChangesNothing() {
+        _ = expandedHoldingAlwaysHidden()
+        move("com.hidden", to: 1450)
+        inventory.menuBarWasHiddenAtLastSnapshot = true
+        rearrange.endDrag()
+        XCTAssertEqual(table.sections["com.hidden"], .hidden)
+
+        inventory.menuBarWasHiddenAtLastSnapshot = false
+        dragLocked = ["com.hidden"]
+        rearrange.endDrag()
+        XCTAssertEqual(table.sections["com.hidden"], .hidden)
+    }
+
+    // With nothing held, a drag refreshes the cached read, which a collapse
+    // from an auto-hidden menu bar then keeps.
+    func testADragOnAnUnrestrictedBarIsKeptWhenTheCollapseFindsTheMenuBarHidden() {
+        let engine = makeEngine()
+        collapse(engine)
+        engine.expand()
+        move("com.hidden", to: 1450)
+        rearrange.endDrag()
+        XCTAssertEqual(table.sections["com.hidden"], .visible)
+        inventory.menuBarWasHiddenAtLastSnapshot = true
+        XCTAssertEqual(collapse(engine), [own, "com.hidden", "com.visible"])
     }
 
     @discardableResult
@@ -4455,5 +4536,125 @@ final class CaptureActivityMonitorTests: XCTestCase {
             throw XCTSkip("heap could not read this process (status \(heap.terminationStatus))")
         }
         return count
+    }
+}
+
+// MARK: - Reads that list no app (menu bar auto-hidden, icons not back yet)
+
+// With "Automatically hide and show the menu bar" on, macOS 27.2.1 parks every
+// app's status items while the bar is hidden, and a read then lists none of
+// them. Cached, that read left every app out of the allow list, and with the
+// always-hidden section held on expand no later read replaced it: a click on
+// the arrow showed nothing.
+final class ReadListsNoAppTests: XCTestCase {
+    private let own = "com.dwarvesv.minimalbar"
+    private var items: FakeItems!
+    private var inventory: FakeInventory!
+    private var visibility: FakeVisibility!
+    private var observed: InMemorySectionMemory!
+    private var table: InMemorySectionMemory!
+    private var pins = true
+    private var running: Set<String> = []
+    private let fullBar = [item("com.hidden", x: 1100), item("com.visible", x: 1400)]
+    private let parkedBar = [systemExtra("com.apple.menuextra.clock", x: 1500)]
+
+    override func setUp() {
+        super.setUp()
+        items = FakeItems()
+        inventory = FakeInventory()
+        inventory.items = fullBar
+        visibility = FakeVisibility()
+        observed = InMemorySectionMemory()
+        table = InMemorySectionMemory()
+        pins = true
+        running = ["com.always", "com.hidden", "com.visible"]
+    }
+
+    private func makeEngine() -> NativeVisibilityEngine {
+        let items = self.items!
+        let engine = NativeVisibilityEngine(items: items, inventory: inventory, visibility: visibility, clock: FakeClock(),
+                                            ownBundleIdentifier: own,
+                                            itemFrame: { $0 === items.toggleItem ? separator : alwaysHiddenSeparator },
+                                            displays: { [mainDisplay] },
+                                            runningBundleIdentifiers: { [unowned self] in running },
+                                            isLTR: { true },
+                                            sectionMemory: observed,
+                                            pinnedSections: table,
+                                            pinsSections: { [unowned self] in pins })
+        return engine
+    }
+
+    @discardableResult
+    private func collapse(_ engine: NativeVisibilityEngine) -> [String] {
+        engine.collapse { _ in }
+        visibility.succeed(visibility.requests.count - 1)
+        return visibility.requests.last?.bundles ?? []
+    }
+
+    func testTheHiddenReadRule() {
+        let app = item("com.app", x: 1100)
+        var unreadable = item("com.slow", x: 0)
+        unreadable.isUnreadable = true
+        XCTAssertTrue(MenuBarHiddenRead.isHidden(items: parkedBar, ownItemsListed: false))
+        XCTAssertTrue(MenuBarHiddenRead.isHidden(items: parkedBar + [unreadable], ownItemsListed: false),
+                      "an app that did not answer says nothing about the bar")
+        XCTAssertFalse(MenuBarHiddenRead.isHidden(items: parkedBar, ownItemsListed: true), "Hidden Bar's own arrow is in the bar")
+        XCTAssertFalse(MenuBarHiddenRead.isHidden(items: parkedBar, ownItemsListed: nil), "unknown never counts as hidden")
+        XCTAssertFalse(MenuBarHiddenRead.isHidden(items: parkedBar + [app], ownItemsListed: false),
+                       "an app's item was read, so the bar was there")
+    }
+
+    func testAReadFromAHiddenMenuBarKeepsTheLastRead() {
+        let engine = makeEngine()
+        XCTAssertEqual(collapse(engine), [own, "com.visible"])
+        engine.expand()
+        let tableBefore = table.sections
+        let observedBefore = observed.sections
+
+        inventory.items = parkedBar
+        inventory.menuBarWasHiddenAtLastSnapshot = true
+        XCTAssertEqual(collapse(engine), [own, "com.visible"], "the visible app is still allowed")
+        XCTAssertEqual(engine.hiddenSectionBundles, ["com.hidden"], "an expand still brings the hidden app back")
+        XCTAssertEqual(table.sections, tableBefore, "nothing is learned from a read of a hidden bar")
+        XCTAssertEqual(observed.sections, observedBefore)
+    }
+
+    func testRunningPinnedAppsTheReadMissedKeepTheirSection() {
+        table.sections = ["com.always": .alwaysHidden, "com.hidden": .hidden, "com.visible": .visible]
+        // A first read with no app listed: Hidden Bar started while the bar was
+        // hidden, or before the apps' icons were back. No earlier read stands in.
+        inventory.items = parkedBar
+        inventory.menuBarWasHiddenAtLastSnapshot = true
+        let engine = makeEngine()
+        XCTAssertEqual(collapse(engine), [own, "com.visible"])
+        XCTAssertEqual(engine.hiddenSectionBundles, ["com.hidden"])
+        XCTAssertEqual(table.sections, ["com.always": .alwaysHidden, "com.hidden": .hidden, "com.visible": .visible])
+    }
+
+    func testAnAppThatIsNotRunningIsNotFilledIn() {
+        table.sections = ["com.always": .alwaysHidden, "com.hidden": .hidden, "com.visible": .visible]
+        running = ["com.visible"]
+        inventory.items = parkedBar
+        let engine = makeEngine()
+        XCTAssertEqual(collapse(engine), [own, "com.visible"])
+        XCTAssertEqual(engine.hiddenSectionBundles, [], "a quit app has nothing to show")
+    }
+
+    func testAnAppHiddenBarNeverSawIsNotFilledIn() {
+        table.sections = ["com.visible": .visible]
+        running = ["com.visible", "com.never.seen"]
+        inventory.items = parkedBar
+        let engine = makeEngine()
+        XCTAssertEqual(collapse(engine), [own, "com.visible"])
+    }
+
+    func testWithoutPinnedSectionsTheLastReadSectionIsUsed() {
+        pins = false
+        let engine = makeEngine()
+        XCTAssertEqual(collapse(engine), [own, "com.visible"])
+        engine.expand()
+        inventory.items = parkedBar
+        XCTAssertEqual(collapse(engine), [own, "com.visible"])
+        XCTAssertEqual(engine.hiddenSectionBundles, ["com.hidden"])
     }
 }
