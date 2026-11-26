@@ -39,7 +39,8 @@ import AppKit
 //   bar. An app that starts while something is hidden is not in the read, so it
 //   gets the section it was last read in (remembered across launches), or the
 //   visible one if it was never read, until that next read places it by where
-//   macOS put its icon.
+//   macOS put its icon. With pinned sections a ⌘-drag is also read as soon as
+//   it ends, from the apps the held restriction shows (`menuBarRearranged`).
 // - The restriction is assessment mode, which makes macOS ignore the clock, so
 //   Notification Center cannot open from it (#410). A click on the clock while
 //   collapsed expands the bar, presses the clock, and collapses again once the
@@ -163,6 +164,8 @@ final class NativeVisibilityEngine: MenuBarEngine {
     private let pinnedSections: MenuBarSectionMemory
     private let ignoredDrags: () -> Set<String>
     private let pinsSections: () -> Bool
+    // Reports a ⌘-drag in the menu bar, read at once (`menuBarRearranged`).
+    private let rearrange: MenuBarRearrangeWatching
 
     // Items right of the arrow that the allow-list cannot keep visible: an item
     // whose owner has no bundle id, or a system extra no system item id covers
@@ -201,9 +204,11 @@ final class NativeVisibilityEngine: MenuBarEngine {
          pinnedSections: MenuBarSectionMemory = InMemorySectionMemory(),
          pinsSections: @escaping () -> Bool = { false },
          ignoredDrags: @escaping () -> Set<String> = { [] },
-         agentLaunches: NotificationCenter? = nil) {
+         agentLaunches: NotificationCenter? = nil,
+         rearrange: MenuBarRearrangeWatching = NoRearrangeWatching()) {
         self.items = items
         self.ignoredDrags = ignoredDrags
+        self.rearrange = rearrange
         self.agentLaunches = agentLaunches
         self.pinnedSections = pinnedSections
         self.pinsSections = pinsSections
@@ -228,6 +233,9 @@ final class NativeVisibilityEngine: MenuBarEngine {
         observeLaunches()
         captureActivity.onChange = { [weak self] in
             self?.captureActivityDidChange()
+        }
+        rearrange.onRearrange = { [weak self] in
+            self?.menuBarRearranged()
         }
         // Quit lifts the restriction explicitly as well as by process exit.
         terminationObserver = (terminationNotifications, terminationNotifications.addObserver(
@@ -996,6 +1004,64 @@ final class NativeVisibilityEngine: MenuBarEngine {
     // Preferences changed the pinned sections: apply them to the held
     // restriction at once. A collapse or expand in flight applies them when it
     // lands. Apps no read listed yet keep the section they were given.
+    // A ⌘-drag in the menu bar just ended, so the bar is on screen even when
+    // macOS auto-hides it. Pinned sections only: without them every collapse
+    // reads the positions anyway.
+    // - Nothing held: a full read, cached for the next collapse, which keeps it
+    //   when that collapse finds the menu bar hidden.
+    // - A restriction held (collapsed, or expanded with the always-hidden
+    //   section hidden): the apps it hides report stale frames, so only the
+    //   apps it shows are read. Those sit where the user just put them, left or
+    //   right of the arrow; the always-hidden separator is out of the bar then,
+    //   so that section is changed by Option-click and a drag, or in Settings.
+    func menuBarRearranged() {
+        guard pinsSections(), inventory.isAuthorized, state != .calibrating,
+              inFlightHold == nil, !holdsPresentationList else { return }
+        guard assertion != nil else {
+            guard state == .expanded else { return }
+            return withLayout { _ in }
+        }
+        guard generation == assertionGeneration,
+              let arrow = items?.toggleItem, let boundary = itemFrame(arrow),
+              Self.isPlaced(arrow: boundary, displays: displays()) else { return }
+        // An app the palette lifted shows only for now, wherever macOS put it.
+        let shown = Set(assertionBundles).subtracting(temporaryAllow.map { [$0.bundle] } ?? [])
+        let generation = self.generation
+        inventory.snapshot { [weak self] inventory in
+            guard let self = self, generation == self.generation, self.assertion != nil,
+                  Set(self.assertionBundles).isSuperset(of: shown) else { return }
+            guard !self.inventory.menuBarWasHiddenAtLastSnapshot else {
+                NSLog("NativeVisibility: the menu bar was hidden when the drag was read; sections unchanged")
+                return
+            }
+            let read = MenuBarLayoutResolver.resolve(inventory: inventory,
+                                                     separatorFrame: boundary,
+                                                     alwaysHiddenSeparatorFrame: nil,
+                                                     displays: self.displays(),
+                                                     isLTR: self.isLTR(),
+                                                     excludingBundle: self.ownBundleIdentifier)
+            let positions = read.sections.filter { shown.contains($0.key) }
+            guard !positions.isEmpty else { return }
+            var observed = self.sectionMemory.sections
+            var table = self.pinnedSections.sections
+            let before = table
+            _ = PinnedSectionResolver.resolve(read: positions,
+                                              launchedSinceRead: self.launchedSinceRead,
+                                              ignoringDrags: self.ignoredDrags(),
+                                              observed: &observed, table: &table)
+            self.sectionMemory.sections = observed
+            self.launchedSinceRead.subtract(positions.keys)
+            let changed = table.filter { before[$0.key] != $0.value }
+            guard !changed.isEmpty else { return }
+            NSLog("NativeVisibility: a ⌘-drag moved \(changed.keys.sorted().map { "\($0) to \(table[$0]!)" })")
+            self.pinnedSections.sections = table
+            self.pinnedSectionsDidChange()
+            // Settings › Icons and the catalog follow the table; the controller,
+            // which passes this notification on to the engine, skips its own.
+            NotificationCenter.default.post(name: .pinnedSectionsChanged, object: self)
+        }
+    }
+
     func pinnedSectionsDidChange() {
         guard pinsSections() else { return }
         let table = pinnedSections.sections

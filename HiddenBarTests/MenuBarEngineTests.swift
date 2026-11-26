@@ -126,6 +126,15 @@ private final class FakeCaptureActivity: CaptureActivityMonitoring {
     }
 }
 
+// Stands in for the ⌘-drag watcher: the test ends a drag.
+private final class FakeRearrange: MenuBarRearrangeWatching {
+    var onRearrange: (() -> Void)?
+
+    func endDrag() {
+        onRearrange?()
+    }
+}
+
 private func item(_ bundle: String?, x: CGFloat, width: CGFloat = 24) -> MenuBarInventoryItem {
     return MenuBarInventoryItem(bundleIdentifier: bundle, frame: CGRect(x: x, y: 0, width: width, height: 24))
 }
@@ -2372,9 +2381,11 @@ final class PinnedSectionsTests: XCTestCase {
     private var table: InMemorySectionMemory!
     private var pins = true
     private var dragLocked: Set<String> = []
+    private var rearrange: FakeRearrange!
 
     override func setUp() {
         super.setUp()
+        rearrange = FakeRearrange()
         items = FakeItems()
         inventory = FakeInventory()
         inventory.items = [item("com.always", x: 900), item("com.hidden", x: 1100), item("com.visible", x: 1400)]
@@ -2395,7 +2406,75 @@ final class PinnedSectionsTests: XCTestCase {
                                       sectionMemory: observed,
                                       pinnedSections: table,
                                       pinsSections: { [unowned self] in pins },
-                                      ignoredDrags: { [unowned self] in dragLocked })
+                                      ignoredDrags: { [unowned self] in dragLocked },
+                                      rearrange: rearrange)
+    }
+
+    // Collapsed once, then expanded with the always-hidden section held.
+    private func expandedHoldingAlwaysHidden() -> NativeVisibilityEngine {
+        table.sections = ["com.always": .alwaysHidden]
+        let engine = makeEngine()
+        engine.updateAlwaysHiddenSection(enabled: true, separatorHidden: true)
+        collapse(engine)
+        engine.expand()
+        XCTAssertEqual(visibility.requests.last?.bundles, [own, "com.hidden", "com.visible"])
+        visibility.succeed(visibility.requests.count - 1)
+        return engine
+    }
+
+    // Given the always-hidden section held while expanded, so a collapse reads nothing
+    // When the user ⌘-drags a hidden app right of the arrow
+    // Then the drag is read when it ends, and the next collapse keeps the app visible
+    func testADragWhileTheAlwaysHiddenSectionIsHeldEditsTheTable() {
+        let engine = expandedHoldingAlwaysHidden()
+        move("com.hidden", to: 1450)
+        // A hidden app's frame is stale: it must not count as a drag.
+        move("com.always", to: 1500)
+        let reads = inventory.snapshots
+        rearrange.endDrag()
+        XCTAssertGreaterThan(inventory.snapshots, reads, "the drag is read")
+        XCTAssertEqual(table.sections["com.hidden"], .visible)
+        XCTAssertEqual(table.sections["com.always"], .alwaysHidden, "an app the restriction hides is not read")
+        XCTAssertEqual(collapse(engine), [own, "com.hidden", "com.visible"])
+    }
+
+    // Given a collapsed bar
+    // When the user ⌘-drags a visible app left of the arrow
+    // Then it hides at once
+    func testADragWhileCollapsedHidesTheApp() {
+        let engine = makeEngine()
+        XCTAssertEqual(collapse(engine), [own, "com.visible"])
+        move("com.visible", to: 1120)
+        rearrange.endDrag()
+        XCTAssertEqual(table.sections["com.visible"], .hidden)
+        XCTAssertEqual(visibility.requests.last?.bundles, [own])
+    }
+
+    // A read from an auto-hidden menu bar lists nothing; a drag-locked app keeps its section.
+    func testADragReadFromAHiddenMenuBarOrOfALockedAppChangesNothing() {
+        _ = expandedHoldingAlwaysHidden()
+        move("com.hidden", to: 1450)
+        inventory.menuBarWasHiddenAtLastSnapshot = true
+        rearrange.endDrag()
+        XCTAssertEqual(table.sections["com.hidden"], .hidden)
+
+        inventory.menuBarWasHiddenAtLastSnapshot = false
+        dragLocked = ["com.hidden"]
+        rearrange.endDrag()
+        XCTAssertEqual(table.sections["com.hidden"], .hidden)
+    }
+
+    // With nothing held, a drag refreshes the cached read, which a collapse
+    // from an auto-hidden menu bar then keeps.
+    func testADragOnAnUnrestrictedBarIsKeptWhenTheCollapseFindsTheMenuBarHidden() {
+        let engine = makeEngine()
+        collapse(engine)
+        engine.expand()
+        move("com.hidden", to: 1450)
+        rearrange.endDrag()
+        XCTAssertEqual(table.sections["com.hidden"], .visible)
+        inventory.menuBarWasHiddenAtLastSnapshot = true
+        XCTAssertEqual(collapse(engine), [own, "com.hidden", "com.visible"])
     }
 
     @discardableResult
