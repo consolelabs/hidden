@@ -168,3 +168,59 @@ final class FullBarActivationTests: XCTestCase {
         XCTAssertEqual(app.calls, [FullBarActivation.usesCooperativeActivation ? "fromFrontApp" : "ignoringOtherApps"])
     }
 }
+
+final class FullBarDeactivationTests: XCTestCase {
+
+    private typealias Screen = FullBarActivation.Screen
+
+    // A 1920x1200 main screen and a 4K screen to its right, set higher.
+    private let mainFrame = CGRect(x: 0, y: 0, width: 1920, height: 1200)
+    private let sideFrame = CGRect(x: 1920, y: 430, width: 3840, height: 2160)
+
+    private func selfHiding(_ frame: CGRect) -> Screen {
+        Screen(frame: frame, visibleFrame: frame)
+    }
+
+    private func barReserved(_ frame: CGRect, height: CGFloat = 24) -> Screen {
+        var visible = frame
+        visible.size.height -= height
+        return Screen(frame: frame, visibleFrame: visible)
+    }
+
+    private func waits(_ pointer: CGPoint, _ screens: [Screen], barHeight: CGFloat = 24) -> Bool {
+        FullBarActivation.waitsBeforeDeactivating(pointer: pointer, screens: screens, barHeight: barHeight)
+    }
+
+    func testWaitsWhileThePointerIsInAMenuBarThatHidesItself() {
+        XCTAssertTrue(waits(CGPoint(x: 1300, y: 1190), [selfHiding(mainFrame)]))
+    }
+
+    func testWaitsAtTheVeryTopRow() {
+        XCTAssertTrue(waits(CGPoint(x: 1300, y: 1200), [selfHiding(mainFrame)]))
+    }
+
+    func testDoesNotWaitOnceThePointerLeftTheBar() {
+        XCTAssertFalse(waits(CGPoint(x: 1300, y: 1100), [selfHiding(mainFrame)]))
+    }
+
+    func testDoesNotWaitWhenTheMenuBarStaysOnScreen() {
+        XCTAssertFalse(waits(CGPoint(x: 1300, y: 1190), [barReserved(mainFrame)]))
+    }
+
+    func testUsesTheScreenThePointerIsOn() {
+        let screens = [barReserved(mainFrame), selfHiding(sideFrame)]
+        XCTAssertTrue(waits(CGPoint(x: 3000, y: sideFrame.maxY - 5), screens))
+        // The main screen's bar height on the side screen is not its menu bar.
+        XCTAssertFalse(waits(CGPoint(x: 3000, y: mainFrame.maxY - 5), screens))
+    }
+
+    func testATallerNotchMenuBarCountsAsTheBar() {
+        XCTAssertTrue(waits(CGPoint(x: 1300, y: 1200 - 30), [selfHiding(mainFrame)], barHeight: 37))
+        XCTAssertFalse(waits(CGPoint(x: 1300, y: 1200 - 30), [selfHiding(mainFrame)], barHeight: 24))
+    }
+
+    func testDoesNotWaitWithNoScreenOrNoBarHeight() {
+        XCTAssertFalse(waits(CGPoint(x: 1300, y: 1190), []))
+        XCTAssertFalse(waits(CGPoint(x: 1300, y: 1190), [selfHiding(mainFrame)], barHeight: 0))
+    }
+}

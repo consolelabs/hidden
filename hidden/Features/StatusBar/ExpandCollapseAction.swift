@@ -119,4 +119,36 @@ enum FullBarActivation {
             app.activateIgnoringOtherApps()
         }
     }
+
+    // A screen as the deactivation check needs it (AppKit coordinates).
+    struct Screen: Equatable {
+        var frame: CGRect
+        var visibleFrame: CGRect
+    }
+
+    // How long a collapse may keep Hidden Bar active while the pointer stays in
+    // the menu bar. Past this the app hands focus back anyway.
+    static let deactivationWaitLimit: TimeInterval = 10
+
+    // With the macOS menu bar set to hide by itself, handing focus back to the
+    // previous app while the pointer is still in the bar makes macOS start
+    // hiding the bar and bring it straight back down. A collapse therefore waits
+    // until the pointer leaves the bar, where the bar hides anyway.
+    //
+    // A bar that hides by itself reserves no space: the screen's visible frame
+    // reaches its top. The bar's strip is then the top `barHeight` of the screen.
+    // A bar that stays on screen never waits: its menus come back at once, as before.
+    static func waitsBeforeDeactivating(pointer: CGPoint, screens: [Screen], barHeight: CGFloat) -> Bool {
+        guard barHeight > 0,
+              let screen = screens.first(where: { $0.frame.contains(pointer) || Self.isOnTopEdge(pointer, of: $0.frame) })
+        else { return false }
+        let hidesItself = screen.visibleFrame.maxY >= screen.frame.maxY - 0.5
+        return hidesItself && pointer.y >= screen.frame.maxY - barHeight
+    }
+
+    // NSEvent.mouseLocation reads y == frame.maxY at the very top row, which
+    // CGRect.contains leaves out.
+    private static func isOnTopEdge(_ point: CGPoint, of frame: CGRect) -> Bool {
+        return point.y == frame.maxY && point.x >= frame.minX && point.x < frame.maxX
+    }
 }

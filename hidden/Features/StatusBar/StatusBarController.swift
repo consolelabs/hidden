@@ -188,6 +188,7 @@ class StatusBarController: MenuBarItemProvider {
 
     deinit {
         timer?.invalidate()
+        pendingDeactivation?.invalidate()
         NotificationCenter.default.removeObserver(self)
         pinnedSectionsObserver.map(NotificationCenter.default.removeObserver)
         hoverDwellTimer?.invalidate()
@@ -491,6 +492,7 @@ class StatusBarController: MenuBarItemProvider {
     }
 
     private func didFailToCollapseMenuBar() {
+        cancelPendingDeactivation()
         if let button = btnExpandCollapse.button {
             button.image = Assets.collapseImage
         }
@@ -517,8 +519,7 @@ class StatusBarController: MenuBarItemProvider {
             button.image = collapsedArrowImage
         }
         if wantsFullBar {
-            NSApp.setActivationPolicy(.accessory)
-            NSApp.deactivate()
+            deactivateAfterCollapse()
         }
         fullBarThisExpansion = false
         revealController.barDidCollapse()
@@ -530,8 +531,47 @@ class StatusBarController: MenuBarItemProvider {
         #endif
     }
 
+    // Set while a collapse waits for the pointer to leave a menu bar that hides
+    // by itself before handing focus back (FullBarActivation.waitsBeforeDeactivating).
+    private var pendingDeactivation: Timer?
+
+    private func cancelPendingDeactivation() {
+        pendingDeactivation?.invalidate()
+        pendingDeactivation = nil
+    }
+
+    private func deactivateAfterCollapse() {
+        cancelPendingDeactivation()
+        guard NSApp.isActive, pointerIsInSelfHidingMenuBar else { return deactivateNow() }
+        let deadline = Date().addingTimeInterval(FullBarActivation.deactivationWaitLimit)
+        NSLog("FullBar: the pointer is in a menu bar that hides by itself; handing focus back once it leaves")
+        pendingDeactivation = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            // Another app took focus meanwhile: nothing would switch on screen now.
+            guard NSApp.isActive, self.pointerIsInSelfHidingMenuBar, Date() < deadline else {
+                self.cancelPendingDeactivation()
+                // An expand meanwhile keeps the full bar; it cancels this timer, but check anyway.
+                if self.isCollapsed { self.deactivateNow() }
+                return
+            }
+        }
+    }
+
+    private func deactivateNow() {
+        NSApp.setActivationPolicy(.accessory)
+        NSApp.deactivate()
+    }
+
+    private var pointerIsInSelfHidingMenuBar: Bool {
+        let screens = NSScreen.screens.map { FullBarActivation.Screen(frame: $0.frame, visibleFrame: $0.visibleFrame) }
+        // The arrow's window is as tall as the menu bar, also under a notch.
+        let barHeight = max(btnExpandCollapse.button?.window?.frame.height ?? 0, NSStatusBar.system.thickness)
+        return FullBarActivation.waitsBeforeDeactivating(pointer: NSEvent.mouseLocation, screens: screens, barHeight: barHeight)
+    }
+
     private func expandMenubar(activatingApp: Bool = true, userInitiated: Bool = false) {
         guard self.isCollapsed else {return}
+        cancelPendingDeactivation()
         #if HIDDENBAR_NATIVE_VISIBILITY
         // Read before the engine expands: it is what the bar hid until now.
         let hiddenBundles = userInitiated ? menuBarEngine.hiddenSectionBundles : []
@@ -560,6 +600,7 @@ class StatusBarController: MenuBarItemProvider {
     
     // Expand/collapse skips the policy change when the option is off, so sync it on toggle.
     @objc private func syncActivationPolicyWithFullStatusBar() {
+        cancelPendingDeactivation()
         let wantsRegular = wantsFullBar && !isCollapsed
         let policy: NSApplication.ActivationPolicy = wantsRegular ? .regular : .accessory
         guard NSApp.activationPolicy() != policy else { return }
