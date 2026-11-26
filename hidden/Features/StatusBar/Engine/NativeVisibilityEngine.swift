@@ -502,6 +502,25 @@ final class NativeVisibilityEngine: MenuBarEngine {
                 NSLog("NativeVisibility: the arrow at \(NSStringFromRect(boundary)) is on no display \(displays.map { NSStringFromRect($0.appKitFrame) })")
                 return body(nil)
             }
+            // Taken while the menu bar was auto-hidden, the read lists no app at
+            // all. Cached, it would leave every app out of the allow list until
+            // the next unrestricted read, which an always-hidden section held
+            // on expand never allows: a click on the arrow showed nothing. The
+            // last read stands in, and nothing is remembered from this one.
+            let menuBarHidden = self.inventory.menuBarWasHiddenAtLastSnapshot
+            if menuBarHidden, let previous = self.layout ?? self.lastCompleteLayout {
+                var kept = previous
+                if self.pinsSections() {
+                    let table = self.pinnedSections.sections
+                    for bundle in kept.sections.keys {
+                        if let pinned = table[bundle] { kept.sections[bundle] = pinned }
+                    }
+                }
+                let filled = self.fillRunningAppsTheReadMissed(&kept)
+                NSLog("NativeVisibility: the menu bar is hidden, so the read lists no app; keeping the last read (hidden \(kept.bundles(in: [.hidden])), always hidden \(kept.bundles(in: [.alwaysHidden])), filled in \(filled))")
+                self.layout = kept
+                return body(kept)
+            }
             var layout = MenuBarLayoutResolver.resolve(inventory: inventory,
                                                        separatorFrame: boundary,
                                                        alwaysHiddenSeparatorFrame: alwaysHiddenFrame,
@@ -517,7 +536,7 @@ final class NativeVisibilityEngine: MenuBarEngine {
                     layout = layout.fillingIn(from: complete)
                 }
                 NSLog("NativeVisibility: the active menu bar overflows; apps it does not list keep their last known section")
-            } else {
+            } else if !menuBarHidden {
                 self.lastCompleteLayout = layout
             }
             if self.pinsSections() {
@@ -534,8 +553,15 @@ final class NativeVisibilityEngine: MenuBarEngine {
             }
             self.launchedSinceRead.subtract(layout.sections.keys)
             // What the read listed, before apps that only started are filled in:
-            // those may have no menu-bar icon at all.
-            self.onUnrestrictedRead?(layout, inventory)
+            // those may have no menu-bar icon at all. A read from a hidden menu
+            // bar lists nothing worth recording.
+            if !menuBarHidden {
+                self.onUnrestrictedRead?(layout, inventory)
+            }
+            let filledIn = self.fillRunningAppsTheReadMissed(&layout)
+            if !filledIn.isEmpty {
+                NSLog("NativeVisibility: running apps the read did not list keep their saved section: \(filledIn)\(menuBarHidden ? " (the menu bar is hidden)" : "")")
+            }
             var missing = self.launchedSinceRead
             if layout.isIncomplete {
                 missing.formUnion(self.runningBundleIdentifiers())
@@ -943,6 +969,28 @@ final class NativeVisibilityEngine: MenuBarEngine {
             return pinnedSections.sections[bundle] ?? PinnedSectionResolver.newAppSection
         }
         return sectionMemory.sections[bundle] ?? .visible
+    }
+
+    // A running app the read did not list, although Hidden Bar knows its section
+    // (pinned, or where it was last read), keeps that section. An app is left
+    // out of a read when its items are not in Accessibility at that moment: the
+    // menu bar auto-hidden, or the app's icon not back yet after a launch or a
+    // relaunch of Hidden Bar. Without this it was out of the allow list until
+    // the next read, which an always-hidden section held on expand never
+    // allows: the arrow showed nothing. Apps Hidden Bar never saw are left
+    // out, as before. Returns the bundles filled in.
+    @discardableResult
+    private func fillRunningAppsTheReadMissed(_ layout: inout MenuBarLayout) -> [String] {
+        let known = pinsSections() ? pinnedSections.sections : sectionMemory.sections
+        var filled: [String] = []
+        for bundle in runningBundleIdentifiers() where layout.sections[bundle] == nil
+            && bundle != ownBundleIdentifier
+            && !MenuBarLayoutResolver.systemItemOwners.contains(bundle) {
+            guard let section = known[bundle] else { continue }
+            layout.sections[bundle] = section
+            filled.append(bundle)
+        }
+        return filled.sorted()
     }
 
     // Preferences changed the pinned sections: apply them to the held

@@ -84,6 +84,30 @@ protocol MenuBarInventoryProviding: AnyObject {
     // while nothing is hidden: once a native visibility assertion is active,
     // hidden items report stale frames.
     func snapshot(completion: @escaping ([MenuBarInventoryItem]) -> Void)
+    // True when the last snapshot was taken while the menu bar itself was hidden
+    // (System Settings › Menu Bar › "Automatically hide and show the menu bar").
+    // macOS then parks every app's status items, Hidden Bar's own included, and
+    // they leave Accessibility, so that read lists none of them (#584 follow-up,
+    // measured on 27.2.1).
+    var menuBarWasHiddenAtLastSnapshot: Bool { get }
+}
+
+extension MenuBarInventoryProviding {
+    var menuBarWasHiddenAtLastSnapshot: Bool { return false }
+}
+
+// A read lists no app's item although macOS's own extras are there: what a read
+// taken while the menu bar is auto-hidden returns (27.2.1). `ownItemsListed` is
+// whether Hidden Bar's own status items were in Accessibility at the same time;
+// nil when that could not be read, which never counts as hidden.
+enum MenuBarHiddenRead {
+    static func isHidden(items: [MenuBarInventoryItem], ownItemsListed: Bool?) -> Bool {
+        guard ownItemsListed == false else { return false }
+        return !items.contains { item in
+            guard !item.isUnreadable, let bundle = item.bundleIdentifier else { return false }
+            return !MenuBarLayoutResolver.systemItemOwners.contains(bundle)
+        }
+    }
 }
 
 // The section each app was last read in, per bundle.

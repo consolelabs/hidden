@@ -47,9 +47,32 @@ final class AccessibilityMenuBarInventory: MenuBarInventoryProviding {
         DispatchQueue.global(qos: .userInitiated).async {
             let start = Date()
             let items = Self.statusItems(of: apps)
-            NSLog("NativeVisibility: inventory of \(apps.count) apps took \(Int(Date().timeIntervalSince(start) * 1000)) ms")
-            DispatchQueue.main.async { completion(items) }
+            let ownItemsListed = Self.listsStatusItems(pid: ownPID)
+            let menuBarHidden = MenuBarHiddenRead.isHidden(items: items, ownItemsListed: ownItemsListed)
+            NSLog("NativeVisibility: inventory of \(apps.count) apps took \(Int(Date().timeIntervalSince(start) * 1000)) ms; own items listed \(ownItemsListed.map(String.init) ?? "unknown"), menu bar hidden \(menuBarHidden)")
+            DispatchQueue.main.async { [weak self] in
+                self?.menuBarWasHiddenAtLastSnapshot = menuBarHidden
+                completion(items)
+            }
         }
+    }
+
+    private(set) var menuBarWasHiddenAtLastSnapshot = false
+
+    // Whether a process's status items are in Accessibility right now. Read off
+    // the main thread, so asking about Hidden Bar itself cannot wait on itself.
+    // nil when the process did not answer.
+    private static func listsStatusItems(pid: pid_t) -> Bool? {
+        let element = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(element, retryTimeout)
+        var barValue: CFTypeRef?
+        let barError = AXUIElementCopyAttributeValue(element, "AXExtrasMenuBar" as CFString, &barValue)
+        if barError == .cannotComplete || barError == .apiDisabled { return nil }
+        guard barError == .success, let bar = barValue else { return false }
+        var childrenValue: CFTypeRef?
+        let childrenError = AXUIElementCopyAttributeValue(bar as! AXUIElement, kAXChildrenAttribute as CFString, &childrenValue)
+        if childrenError == .cannotComplete { return nil }
+        return !((childrenValue as? [AXUIElement])?.isEmpty ?? true)
     }
 
     // macOS 27 hides an app run from outside an Applications folder although its
